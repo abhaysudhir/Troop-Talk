@@ -4,12 +4,33 @@ from email.policy import default
 from PyPDF2 import PdfReader
 import docx
 import openpyxl
+from pinecone import Pinecone, ServerlessSpec
+from openai import OpenAI
 
-# Define directories
+# Hardcoded API keys
+PC_API_KEY = "pcsk_5CwF7M_2c71gSS2ogeQnpVRd3TJWHrj69hJBVGn1uZxNqtbSkgeXXszh6Q2dDpvghvA6sF"  # Replace with your Pinecone API key
+PC_ENVIRONMENT = "us-east-1"  # Replace with your Pinecone environment
+OPENAI_API_KEY = "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"  # Replace with your OpenAI API key
+
+# Initialize OpenAI
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+# Initialize Pinecone
+pc = Pinecone(api_key=PC_API_KEY, environment=PC_ENVIRONMENT)
+
+# Create or connect to a Pinecone index
+index_name = "boyscout-gpt-t125"
+# if index_name not in pc.list_indexes():
+#     pc.create_index(
+#         index_name,
+#         dimension=1536,
+#         spec=ServerlessSpec(cloud="aws", region=PC_ENVIRONMENT),
+#     )  # OpenAI embedding dimension is 1536
+index = pc.Index(index_name)
+
+# Directories
 uncleaned_dir = "Uncleaned_Emails"
 cleaned_dir = "Cleaned_Emails"
-
-# Ensure cleaned directory exists
 os.makedirs(cleaned_dir, exist_ok=True)
 
 # Allowed document types
@@ -54,38 +75,33 @@ def extract_xlsx_content(file_path):
     return "\n".join(content)
 
 
-# Function to remove empty lines from content
+# Function to remove empty lines
 def remove_empty_lines(text):
     return "\n".join(line for line in text.split("\n") if line.strip() != "")
 
 
-# Function to process a single email and its attachments
+# Function to clean an email
 def clean_email(file_path):
     with open(file_path, "r", encoding="utf-8") as file:
         msg = email.message_from_file(file, policy=default)
 
-    # Extract necessary fields
+    # Extract metadata
     subject = msg.get("Subject", "No Subject")
     sender = msg.get("From", "Unknown Sender")
     date = msg.get("Date", "No Date")
     body = ""
-
-    # Initialize content for attachments
     attachments_content = []
 
-    # Extract plain text body
+    # Extract email body and attachments
     if msg.is_multipart():
         for part in msg.walk():
             content_type = part.get_content_type()
             disposition = part.get("Content-Disposition", "")
 
-            # Handle plain text
             if content_type == "text/plain" and "attachment" not in disposition:
                 body = part.get_payload(decode=True).decode(
                     part.get_content_charset() or "utf-8"
                 )
-
-            # Handle document attachments
             elif "attachment" in disposition:
                 filename = part.get_filename()
                 if filename:
@@ -114,27 +130,40 @@ def clean_email(file_path):
     else:
         body = msg.get_payload(decode=True).decode(msg.get_content_charset() or "utf-8")
 
-    # Clean the email body and attachments content by removing empty lines
+    # Combine cleaned email content
     cleaned_content = f"Subject: {subject}\nFrom: {sender}\nDate: {date}\n\n{remove_empty_lines(body.strip())}"
     if attachments_content:
         cleaned_content += "\n\nAttachments:\n" + "\n".join(attachments_content)
 
-    return cleaned_content
+    return cleaned_content, subject, sender, date
 
 
-# Process all .eml files in the Uncleaned_Emails folder
+# Function to generate embeddings
+def embed_text(text):
+    response = client.embeddings.create(model="text-embedding-ada-002", input=text)
+    return response.data[0].embedding
+
+
+# Process emails and upload to Pinecone
 for filename in os.listdir(uncleaned_dir):
     if filename.endswith(".eml"):
         file_path = os.path.join(uncleaned_dir, filename)
-        cleaned_content = clean_email(file_path)
+        cleaned_content, subject, sender, date = clean_email(file_path)
 
-        # Save the cleaned content to a new file in the Cleaned_Emails folder
+        # Save cleaned content
         cleaned_file_path = os.path.join(
             cleaned_dir, f"{os.path.splitext(filename)[0]}.txt"
         )
         with open(cleaned_file_path, "w", encoding="utf-8") as cleaned_file:
             cleaned_file.write(cleaned_content)
 
-print(
-    "All emails have been cleaned, and document attachment content has been included with empty lines removed."
-)
+        # Generate embedding and upload to Pinecone
+        try:
+            embedding = embed_text(cleaned_content)
+            metadata = {"subject": subject, "from": sender, "date": date}
+            index.upsert([(filename, embedding, metadata)])
+            print(f"Uploaded {filename} with metadata to Pinecone.")
+        except Exception as e:
+            print(f"Error uploading {filename}: {e}")
+
+print("Emails cleaned and uploaded to Pinecone with metadata.")
