@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from pinecone import Pinecone
+from urllib.parse import unquote
 
 # Hardcoded API keys and configurations
 OPENAI_API_KEY = "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"
@@ -19,6 +21,15 @@ index = pc.Index(INDEX_NAME)
 
 # Define FastAPI app
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "*"
+    ],  # Allows all origins. Use a specific list for security in production.
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all HTTP methods.
+    allow_headers=["*"],  # Allows all headers.
+)
 
 
 def retrieve_from_pinecone(query, top_k=3):
@@ -114,8 +125,11 @@ def ask_question(
     Endpoint to handle user questions and return an AI-generated answer.
     Accepts query parameters instead of JSON body.
     """
+    # URL decode the question
+    decoded_question = unquote(question)
+    print("Decoded Question: " + decoded_question)
     # Step 1: Retrieve relevant documents from Pinecone
-    documents = retrieve_from_pinecone(question, top_k)
+    documents = retrieve_from_pinecone(decoded_question, top_k)
 
     if not documents:
         raise HTTPException(
@@ -124,8 +138,9 @@ def ask_question(
 
     # Step 2: Ask GPT with the combined content
     if any(documents):  # Ensure at least one document has content
-        answer = ask_gpt(documents, question)
-        return {"question": question, "answer": answer}
+        answer = ask_gpt(documents, decoded_question)
+        print(answer)
+        return {"question": decoded_question, "answer": answer}
     else:
         raise HTTPException(
             status_code=404,
@@ -137,4 +152,4 @@ def ask_question(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=443)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
