@@ -32,7 +32,7 @@ app.add_middleware(
 )
 
 
-def retrieve_from_pinecone(query, top_k=3):
+def retrieve_from_pinecone(query, top_k=5):
     """
     Retrieves the most relevant documents from Pinecone based on the query.
     Includes metadata, document content, and embedding values.
@@ -80,7 +80,7 @@ def ask_gpt(contexts, question):
     """
     Uses GPT-3.5-turbo to answer a question based on the provided contexts.
     """
-    token_limit = 3750  # Token limit for context
+    token_limit = 12300  # Token limit for context
     prompt_start = "Answer the question based on the context below.\n\nContext:\n"
     prompt_end = f"\n\nQuestion: {question}\nAnswer:"
 
@@ -153,4 +153,4 @@ def ask_question(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=4000)
