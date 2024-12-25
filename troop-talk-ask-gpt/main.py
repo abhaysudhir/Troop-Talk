@@ -61,7 +61,7 @@ def retrieve_from_pinecone(query, top_k=3):
             subject = match["metadata"]["subject"]
             score = match["score"]
             contexts.append((date, from_, subject, score, body))
-        print("Contexts: " + str(contexts))
+        # print("Contexts: " + str(contexts))
         return contexts
         # print("context " + str(contexts))
         # if not contexts:
@@ -91,6 +91,7 @@ def ask_gpt(contexts, question):
             len(context_block) + len(context) + len(prompt_start) + len(prompt_end)
             >= token_limit
         ):
+            print("Too much content for ChatGPT")
             break
         context_block += f"\n\n---\n\n{context}"
 
