@@ -14,4 +14,12 @@ OpenAI: `sk-proj-UYP670rUchUOeLjO1fmvc3Yf_zCKAnOkcevIFFJLb602YNuYoaFgHZEkIrp973K
 
 
 troop-talk-website is a submodule now
-branch that will be used will be `official-branch`
+branch that will be used will be `official-branch` 
+- this will also be hosted in the future as the website 
+
+## For troop-talk-website
+# Step 3: Install the necessary dependencies.
+npm i
+
+# Step 4: Start the development server with auto-reloading and an instant preview.
+npm run dev
