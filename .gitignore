@@ -2,3 +2,4 @@ venv/
 .DS_Store
 Uncleaned_Emails/
 Cleaned_Emails/
+.env
