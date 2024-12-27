@@ -4,6 +4,7 @@ The aim of this project is to create a chat interface that will allow people to 
 - [x] Initialize & Setup Git & Venv
 - [x] Create exporting emails to pinecone script (Current Supported Filetypes: .pdf, .docx, .xlsx)
 - [x] Create Asking ChatGPT
+- [x] Host on Digital Ocean
 
 Problems
 - [x] Unable to mass export emails (SOLVED USING Gscripts)

@@ -80,7 +80,7 @@ def ask_gpt(contexts, question):
     """
     Uses GPT-3.5-turbo to answer a question based on the provided contexts.
     """
-    token_limit = 12300  # Token limit for context
+    token_limit = 12289  # Token limit for context
     prompt_start = "Answer the question based on the context below.\n\nContext:\n"
     prompt_end = f"\n\nQuestion: {question}\nAnswer:"
 
