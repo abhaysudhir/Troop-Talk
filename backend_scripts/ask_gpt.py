@@ -4,6 +4,8 @@ from openai import OpenAI
 from pinecone import Pinecone
 from urllib.parse import unquote
 import os
+import uvicorn
+
 
 # Hardcoded API keys and configurations
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -150,6 +152,5 @@ def ask_question(
 
 # Run the application
 if __name__ == "__main__":
-    import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=4000)
