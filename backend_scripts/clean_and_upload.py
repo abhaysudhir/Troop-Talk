@@ -8,13 +8,13 @@ from pinecone import Pinecone
 from openai import OpenAI
 
 # API keys and configurations
-PC_API_KEY = "pcsk_5CwF7M_2c71gSS2ogeQnpVRd3TJWHrj69hJBVGn1uZxNqtbSkgeXXszh6Q2dDpvghvA6sF"  # Replace with your Pinecone API key
-PC_ENVIRONMENT = "us-east-1"
-OPENAI_API_KEY = "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"  # Replace with your OpenAI API key
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+PINECONE_ENV = "us-east-1"
 
 # Initialize OpenAI and Pinecone
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
-pinecone_client = Pinecone(api_key=PC_API_KEY, environment=PC_ENVIRONMENT)
+pinecone_client = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
 
 # Set up Pinecone index
 INDEX_NAME = "boyscout-gpt-t125"
