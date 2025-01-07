@@ -6,6 +6,9 @@ import docx
 import openpyxl
 from pinecone import Pinecone
 from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # API keys and configurations
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")

@@ -1,5 +1,5 @@
 venv/
 .DS_Store
-Uncleaned_Emails/
-Cleaned_Emails/
+backend_scripts/Uncleaned_Emails/
+backend_scripts/Cleaned_Emails/
 .env

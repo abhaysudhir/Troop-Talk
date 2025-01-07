@@ -10,9 +10,7 @@ Problems
 - [x] Unable to mass export emails (SOLVED USING Gscripts)
 - [ ] Too many tokens for ChatGPT to process
 
-Pinecone: `pcsk_5CwF7M_2c71gSS2ogeQnpVRd3TJWHrj69hJBVGn1uZxNqtbSkgeXXszh6Q2dDpvghvA6sF`
-OpenAI: `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`
-
+Current Pincone Context Window (Updated 1/6/2024): 9/27/2024 - 1/6/2024 -- All emails sent to whole troop
 
 troop-talk-website is a submodule now
 branch that will be used will be `official-branch` 
