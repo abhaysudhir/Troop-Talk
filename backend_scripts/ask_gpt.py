@@ -81,7 +81,7 @@ def ask_gpt(contexts, question):
     """
     Uses GPT-3.5-turbo to answer a question based on the provided contexts.
     """
-    token_limit = 14000  # Token limit for context
+    token_limit = 12000  # Token limit for context
     prompt_start = """
     GIVE ALL ANSWERS IN MARKDOWN FORMAT. Be clear and concise.
     Answer the question based on the context below. I want whatever you say to be nice, respectful and helpful and align with scouting principles. 
@@ -131,7 +131,7 @@ def ask_gpt(contexts, question):
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt},
         ],
-        max_tokens=800,
+        max_tokens=2000,
         temperature=0.7,
     )
     return response.choices[0].message.content.strip()
