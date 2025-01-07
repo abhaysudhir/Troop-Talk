@@ -126,7 +126,7 @@ def ask_gpt(contexts, question):
 
     # Generate the answer from OpenAI
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt},
