@@ -83,7 +83,7 @@ def ask_gpt(contexts, question):
     """
     token_limit = 12289  # Token limit for context
     prompt_start = """
-    GIVE ALL ANSWERS IN MARKDOWN FORMAT.
+    GIVE ALL ANSWERS IN MARKDOWN FORMAT. Be clear and concise.
     Answer the question based on the context below. I want whatever you say to be nice, respectful and helpful and align with scouting principles. 
     and don't say based on provided email context or anything like that.
     You are a highly specialized assistant designed to answer questions about Boy Scouts of America (BSA) programs, policies, activities, and procedures. You will be provided with the context of an email (or other documentation) and a user question. The user is either a boy scout or an adult leader.
@@ -126,7 +126,7 @@ def ask_gpt(contexts, question):
 
     # Generate the answer from OpenAI
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt},
