@@ -3,9 +3,7 @@ from pydantic import BaseModel
 import httpx
 import os
 from dotenv import load_dotenv
-import hmac
-import hashlib
-import uvicorn
+from svix.webhooks import Webhook, WebhookVerificationError
 import json
 
 # Load environment variables
@@ -20,63 +18,41 @@ CLERK_WEBHOOK_SECRET = os.getenv("CLERK_WEBHOOK_SECRET")
 if not CLERK_SECRET_KEY or not CLERK_WEBHOOK_SECRET:
     raise ValueError("Missing required environment variables")
 
-def verify_clerk_webhook(signature_header: str, timestamp: str, body: bytes) -> bool:
-    """Verify that the webhook request came from Clerk"""
-    try:
-        print("=== Debug Verification ===")
-        print(f"Raw signature header: {signature_header}")
-        print(f"Timestamp: {timestamp}")
-        print(f"Raw body: {body.decode()}")
-        
-        # The signature header format is "v1,<signature>"
-        version, signature = signature_header.split(',')
-        if version != 'v1':
-            print(f"Unsupported version: {version}")
-            return False
-            
-        # Construct the message as timestamp + "." + body
-        message = f"{timestamp}.{body.decode()}"
-        print(f"Constructed message: {message[:100]}...") # Print first 100 chars
-        
-        # Compute HMAC
-        computed = hmac.new(
-            CLERK_WEBHOOK_SECRET.encode(),
-            message.encode(),
-            hashlib.sha256
-        ).digest()
-        
-        # Base64 encode the computed signature
-        import base64
-        computed_b64 = base64.b64encode(computed).decode()
-        
-        print(f"Comparing signatures:")
-        print(f"Computed (base64): {computed_b64}")
-        print(f"Received: {signature}")
-        
-        return hmac.compare_digest(computed_b64, signature)
-        
-    except Exception as e:
-        print(f"Verification error: {str(e)}")
-        return False
-
 @app.post("/webhook/signup")
 async def handle_signup_webhook(request: Request):
     try:
-        print("=== New Webhook Request ===")
-        print("Headers received:", dict(request.headers))
+        # Get and validate required headers
+        required_headers = ["svix-id", "svix-timestamp", "svix-signature"]
+        headers = {}
+        for header in required_headers:
+            value = request.headers.get(header)
+            if not value:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Missing required header: {header}"
+                )
+            headers[header] = value
         
-        # Get the required headers
-        signature = request.headers.get("svix-signature")
-        timestamp = request.headers.get("svix-timestamp")
-        
-        if not signature or not timestamp:
-            raise HTTPException(status_code=400, detail="Missing required headers")
+        # Debug logging
+        print("=== Webhook Debug Info ===")
+        print(f"WEBHOOK_SECRET (first 10 chars): {CLERK_WEBHOOK_SECRET[:10]}...")
+        print(f"Headers received: {dict(request.headers)}")
+        print(f"Parsed headers: {headers}")
         
         # Get the raw body
         body = await request.body()
+        body_str = body.decode()
+        print(f"Raw body: {body_str[:100]}...") # First 100 chars
         
-        if not verify_clerk_webhook(signature, timestamp, body):
-            raise HTTPException(status_code=401, detail="Invalid signature")
+        # Initialize the Svix webhook instance with our secret
+        wh = Webhook(CLERK_WEBHOOK_SECRET)
+        
+        try:
+            # Verify the webhook
+            wh.verify(body_str, headers)
+        except WebhookVerificationError as e:
+            print(f"Webhook verification failed: {e}")
+            raise HTTPException(status_code=401, detail=f"Invalid signature: {str(e)}")
 
         webhook_data = json.loads(body)
         
