@@ -23,7 +23,7 @@ npm i
 # Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 
-Possibly using an AI crawler to scrape emaisl from google groups?
+Possibly using an AI crawler to scrape emails from google groups?
 
 - [ ] Send emails to higher ups in Boy Scouts to partner with them
 Ozzie suggested that we can use it for Boy Scouts but also expand to Church Groups, YMCA, etc.
