@@ -22,3 +22,7 @@ npm i
 
 # Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
+
+Possibly using an AI crawler to scrape emaisl from google groups?
+
+- [ ] Send emails to higher ups in Boy Scouts to partner with them
