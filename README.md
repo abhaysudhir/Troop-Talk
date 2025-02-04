@@ -8,7 +8,7 @@ The aim of this project is to create a chat interface that will allow people to 
 
 Problems
 - [x] Unable to mass export emails (SOLVED USING Gscripts)
-- [ ] Too many tokens for ChatGPT to process
+- [x] Too many tokens for ChatGPT to process
 
 Current Pincone Context Window (Updated 1/6/2024): 9/27/2024 - 1/6/2024 -- All emails sent to whole troop
 
