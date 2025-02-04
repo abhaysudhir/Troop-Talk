@@ -78,12 +78,10 @@ def retrieve_from_pinecone(query, top_k=5):
 
 
 def ask_gpt(contexts, question):
-    """
-    Uses GPT-3.5-turbo to answer a question based on the provided contexts.
-    """
-    token_limit = 12000  # Token limit for context
+    """w"""
+    token_limit = 2000  # Token limit for context
     prompt_start = """
-    GIVE ALL ANSWERS IN MARKDOWN FORMAT. Be clear and concise.
+    GIVE ALL ANSWERS IN MARKDOWN FORMAT. Be clear and concise. At the bottom of your response, give the source of the information.
     Answer the question based on the context below. I want whatever you say to be nice, respectful and helpful and align with scouting principles. 
     and don't say based on provided email context or anything like that.
     You are a highly specialized assistant designed to answer questions about Boy Scouts of America (BSA) programs, policies, activities, and procedures. You will be provided with the context of an email (or other documentation) and a user question. The user is either a boy scout or an adult leader.
@@ -126,12 +124,12 @@ def ask_gpt(contexts, question):
 
     # Generate the answer from OpenAI
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt},
         ],
-        max_tokens=2000,
+        max_tokens=10000,
         temperature=0.7,
     )
     return response.choices[0].message.content.strip()

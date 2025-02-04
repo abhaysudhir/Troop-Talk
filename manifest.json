@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Google Groups Email Scraper",
+  "version": "1.0",
+  "description": "Scrapes emails from Google Groups",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://groups.google.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://groups.google.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+} 
