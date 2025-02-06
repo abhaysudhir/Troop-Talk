@@ -27,3 +27,5 @@ Possibly using an AI crawler to scrape emails from google groups?
 
 - [ ] Send emails to higher ups in Boy Scouts to partner with them
 Ozzie suggested that we can use it for Boy Scouts but also expand to Church Groups, YMCA, etc.
+
+Talking to Mr. Putt about possibly partnering up.
