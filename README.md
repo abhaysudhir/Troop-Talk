@@ -29,3 +29,4 @@ Possibly using an AI crawler to scrape emails from google groups?
 Ozzie suggested that we can use it for Boy Scouts but also expand to Church Groups, YMCA, etc.
 
 Talking to Mr. Putt about possibly partnering up.
+Advertising in Scout Life Magazine
