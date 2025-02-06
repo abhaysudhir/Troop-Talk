@@ -24,12 +24,12 @@ INDEX_NAME = "boyscout-gpt-t125"
 index = pinecone_client.Index(INDEX_NAME)
 
 # Directories for processing
-UNCLEANED_DIR = "Uncleaned_Emails"
-CLEANED_DIR = "Cleaned_Emails"
+UNCLEANED_DIR = "Uncleaned_General_Info" 
+CLEANED_DIR = "Cleaned_General_Info" 
 os.makedirs(CLEANED_DIR, exist_ok=True)
 
 # Allowed file extensions
-ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx"}
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".txt"}
 
 
 # Helper functions for content extraction
@@ -60,6 +60,14 @@ def extract_xlsx_content(file_path):
         return "\n".join(content)
     except Exception as e:
         return f"Error reading XLSX: {e}"
+
+
+def extract_txt_content(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return file.read()
+    except Exception as e:
+        return f"Error reading TXT: {e}"
 
 
 def remove_empty_lines(text):
@@ -107,6 +115,8 @@ def clean_email(file_path):
                             attachments.append(extract_docx_content(temp_path))
                         elif ext == ".xlsx":
                             attachments.append(extract_xlsx_content(temp_path))
+                        elif ext == ".txt":
+                            attachments.append(extract_txt_content(temp_path))
                         os.remove(temp_path)
     else:
         try:
@@ -139,9 +149,21 @@ def embed_text(text):
 
 # Process and upload emails
 for filename in os.listdir(UNCLEANED_DIR):
-    if filename.endswith(".eml"):
+    if filename.endswith((".eml", ".txt")):  # Add .txt to the file types we process
         file_path = os.path.join(UNCLEANED_DIR, filename)
-        cleaned_content, subject, sender, date = clean_email(file_path)
+        
+        if filename.endswith(".eml"):
+            cleaned_content, subject, sender, date = clean_email(file_path)
+        else:  # For .txt files
+            try:
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    cleaned_content = file.read()
+                subject = os.path.splitext(filename)[0]  # Use filename as subject
+                sender = "Text File"
+                date = os.path.getmtime(file_path)  # Use file modification time as date
+            except Exception as e:
+                print(f"Error processing text file {filename}: {e}")
+                continue
 
         cleaned_file_path = os.path.join(
             CLEANED_DIR, f"{os.path.splitext(filename)[0]}.txt"
