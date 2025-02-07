@@ -128,7 +128,7 @@ def ask_gpt(contexts, question):
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "system", "content": "You are an expert scout leader. You are given a question and a context. You are to answer the question based on the context. You are to be helpful and respectful and align with scouting principles."},
             {"role": "user", "content": prompt},
         ],
         max_tokens=2000,
