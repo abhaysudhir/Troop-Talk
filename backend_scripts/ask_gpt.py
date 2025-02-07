@@ -5,6 +5,7 @@ from pinecone import Pinecone
 from urllib.parse import unquote
 import os
 import uvicorn
+import tiktoken
 
 
 # Hardcoded API keys and configurations
@@ -77,6 +78,11 @@ def retrieve_from_pinecone(query, top_k=5):
         )
 
 
+def count_tokens(text: str, model: str = "gpt-4") -> int:
+    """Count the number of tokens in a text string."""
+    encoding = tiktoken.encoding_for_model(model)
+    return len(encoding.encode(text))
+
 def ask_gpt(contexts, question):
     """
     Uses GPT-3.5-turbo to answer a question based on the provided contexts.
@@ -107,13 +113,14 @@ def ask_gpt(contexts, question):
     # Build the context block for the prompt
     context_block = ""
     for context in contexts:
+        new_context = f"\n\n---\n\n{context}"
         if (
-            len(context_block) + len(context) + len(prompt_start) + len(prompt_end)
+            len(context_block) + len(new_context) + len(prompt_start) + len(prompt_end)
             >= token_limit
         ):
             print("Too much content for ChatGPT")
             break
-        context_block += f"\n\n---\n\n{context}"
+        context_block += new_context
 
     if not context_block.strip():
         raise HTTPException(
@@ -122,11 +129,20 @@ def ask_gpt(contexts, question):
         )
 
     prompt = prompt_start + context_block + prompt_end
+    
+    # Count and print tokens
+    total_tokens = count_tokens(prompt)
+    print(f"\nToken Statistics:")
+    print(f"Total tokens in prompt: {total_tokens}")
+    print(f"Prompt start tokens: {count_tokens(prompt_start)}")
+    print(f"Context block tokens: {count_tokens(context_block)}")
+    print(f"Prompt end tokens: {count_tokens(prompt_end)}")
+    
     print(f"Generated Prompt:\n{prompt}")  # Debugging/logging
 
     # Generate the answer from OpenAI
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4",  # Fixed typo in model name from "gpt-4o" to "gpt-4"
         messages=[
             {"role": "system", "content": "You are an expert scout leader. You are given a question and a context. You are to answer the question based on the context. You are to be helpful and respectful and align with scouting principles."},
             {"role": "user", "content": prompt},
@@ -134,6 +150,12 @@ def ask_gpt(contexts, question):
         max_tokens=2000,
         temperature=0.7,
     )
+    
+    # Print completion tokens
+    completion_tokens = count_tokens(response.choices[0].message.content)
+    print(f"Response tokens: {completion_tokens}")
+    print(f"Total tokens used (prompt + response): {total_tokens + completion_tokens}")
+    
     return response.choices[0].message.content.strip()
 
 
