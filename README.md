@@ -14,7 +14,6 @@ Current Pincone Context Window (Updated 1/6/2024): 9/27/2024 - 3/9/2025 -- All e
 
 troop-talk-website is a submodule now
 branch that will be used will be `official-branch` 
-- this will also be hosted in the future as the website 
 
 ## For troop-talk-website
 # Step 3: Install the necessary dependencies.
