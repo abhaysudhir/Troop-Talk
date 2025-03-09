@@ -3,3 +3,4 @@ venv/
 backend_scripts/Uncleaned_Emails/
 backend_scripts/Cleaned_Emails/
 .env
+Uncleaned_Emails_Archive/
