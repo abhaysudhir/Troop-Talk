@@ -1,40 +1,22 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from openai import OpenAI
 from pinecone import Pinecone
 from urllib.parse import unquote
 import os
 import uvicorn
-import google.generativeai as genai
-from openai import OpenAI  # Still needed for embeddings
-import dotenv
+import tiktoken
 
-dotenv.load_dotenv()
-# API keys and configurations
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # Still needed for embeddings
+
+# Hardcoded API keys and configurations
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-print(GOOGLE_API_KEY)
 PINECONE_ENV = "us-east-1"
 INDEX_NAME = "boyscout-gpt-t125"
 
-# Initialize clients
-openai_client = OpenAI(api_key=OPENAI_API_KEY)  # For embeddings only
+# Initialize OpenAI and Pinecone clients
+client = OpenAI(api_key=OPENAI_API_KEY)
 pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
-genai.configure(api_key=GOOGLE_API_KEY)
-
-# Configure Gemini model
-generation_config = {
-    "temperature": 0.7,
-    "top_p": 0.95,
-    "top_k": 40,
-    "max_output_tokens": 8000,
-    "response_mime_type": "text/plain",
-}
-
-model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash",
-    generation_config=generation_config,
-)
 
 # Define Pinecone index
 index = pc.Index(INDEX_NAME)
@@ -43,30 +25,36 @@ index = pc.Index(INDEX_NAME)
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "*"
+    ],  # Allows all origins. Use a specific list for security in production.
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allows all HTTP methods.
+    allow_headers=["*"],  # Allows all headers.
 )
+
 
 def retrieve_from_pinecone(query, top_k=5):
     """
     Retrieves the most relevant documents from Pinecone based on the query.
+    Includes metadata, document content, and embedding values.
     """
     try:
         # Generate query embedding using OpenAI embeddings
-        embedding_response = openai_client.embeddings.create(
+        embedding_response = client.embeddings.create(
             model="text-embedding-ada-002", input=query
         )
         query_embedding = embedding_response.data[0].embedding
 
+        # Query Pinecone for the top-k relevant vectors
         results = index.query(
             vector=query_embedding,
             top_k=top_k,
             include_metadata=True,
             include_values=True,
         )
-        
+        # print("results: " + str(results))
+        # Collect combined metadata, document content, and embedding values
         contexts = []
         for match in results["matches"]:
             body = match["metadata"]["body"]
@@ -75,50 +63,102 @@ def retrieve_from_pinecone(query, top_k=5):
             subject = match["metadata"]["subject"]
             score = match["score"]
             contexts.append((date, from_, subject, score, body))
+        # print("Contexts: " + str(contexts))
         return contexts
+        # print("context " + str(contexts))
+        # if not contexts:
+        #     raise HTTPException(
+        #         status_code=404, detail="No relevant content found in Pinecone matches."
+        #     )
+
+        # return contexts
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error querying Pinecone: {str(e)}"
         )
 
-def ask_gemini(contexts, question):
+
+def count_tokens(text: str, model: str = "gpt-4") -> int:
+    """Count the number of tokens in a text string."""
+    encoding = tiktoken.encoding_for_model(model)
+    return len(encoding.encode(text))
+
+def ask_gpt(contexts, question):
     """
-    Uses Gemini to answer a question based on the provided contexts.
+    Uses GPT-3.5-turbo to answer a question based on the provided contexts.
     """
-    system_prompt = """You are an expert scout leader. You are a highly specialized assistant designed to answer questions about Boy Scouts of America (BSA) programs, policies, activities, and procedures. Give all answers in markdown format. Be clear, concise, nice, respectful and helpful and align with scouting principles. I want all your responses to be in markdown format.
-    If the user seems to wants a short response, you should provide a short response. If the user seems to want a long response, you should provide a long response.
+    token_limit = 12000  # Token limit for context
+    prompt_start = """
+    GIVE ALL ANSWERS IN MARKDOWN FORMAT. Be clear and concise.
+    Answer the question based on the context below. I want whatever you say to be nice, respectful and helpful and align with scouting principles. 
+    and don't say based on provided email context or anything like that.
+    You are a highly specialized assistant designed to answer questions about Boy Scouts of America (BSA) programs, policies, activities, and procedures. You will be provided with the context of an email (or other documentation) and a user question. The user is either a boy scout or an adult leader.
+    If the user wants a short response, you should provide a short response. 
+    Your task is to:
 
-If the answer is not explicitly in the provided context, rely on general knowledge about Boy Scouts, including:
-1. BSA rank advancements, merit badges, and leadership roles
-2. Campouts, service projects, and troop meetings
-3. Adult responsibilities like organizing events, safety protocols, and guiding Scouts
-4. Youth-led principles like the patrol method and leadership development
-5. If no direct answer is available, provide general guidance and suggest next steps"""
+    Interpret the email context to extract relevant information.
 
-    # Format contexts into a single string
-    context_text = "\n\n---\n\n".join([
-        f"Date: {date}\nFrom: {from_}\nSubject: {subject}\nRelevance: {score}\n\n{body}"
-        for date, from_, subject, score, body in contexts
-    ])
+    Prioritize clarity and precision in your responses.
 
-    # Create chat session with system prompt
-    chat = model.start_chat(history=[
-        {"role": "user", "parts": [system_prompt]},
-        {"role": "model", "parts": ["I understand and will act as a knowledgeable scout leader, providing helpful and respectful guidance in markdown format."]}
-    ])
+    If the answer is not explicitly in the provided email context, rely on general knowledge about Boy Scouts, including:
 
-    # Send context and question
-    prompt = f"Context:\n{context_text}\n\nQuestion: {question}\n\nProvide a clear, helpful answer in markdown format:"
-    
-    try:
-        response = chat.send_message(prompt)
-        return response.text.strip()
-    except Exception as e:
-        print(f"Error from Gemini: {str(e)}")
+    1. BSA rank advancements, merit badges, and leadership roles.
+    2. Campouts, service projects, and troop meetings.
+    3. Adult responsibilities like organizing events, safety protocols, and guiding Scouts in leadership and Eagle projects.
+    4. Youth-led principles like the patrol method, Scout leadership development, and community service.
+    5. If no direct answer is available, provide general guidance and suggest next steps or resources (e.g., checking specific pages on scouting.org or contacting a council representative).
+
+    \n\nContext:\n"""
+    prompt_end = f"\n\nQuestion: {question}\nAnswer:"
+
+    # Build the context block for the prompt
+    context_block = ""
+    for context in contexts:
+        new_context = f"\n\n---\n\n{context}"
+        if (
+            len(context_block) + len(new_context) + len(prompt_start) + len(prompt_end)
+            >= token_limit
+        ):
+            print("Too much content for ChatGPT")
+            break
+        context_block += new_context
+
+    if not context_block.strip():
         raise HTTPException(
-            status_code=500,
-            detail=f"Error generating response: {str(e)}"
+            status_code=404,
+            detail="Insufficient content to generate a meaningful answer.",
         )
+
+    prompt = prompt_start + context_block + prompt_end
+    
+    # Count and print tokens
+    total_tokens = count_tokens(prompt)
+    print(f"\nToken Statistics:")
+    print(f"Total tokens in prompt: {total_tokens}")
+    print(f"Prompt start tokens: {count_tokens(prompt_start)}")
+    print(f"Context block tokens: {count_tokens(context_block)}")
+    print(f"Prompt end tokens: {count_tokens(prompt_end)}")
+    
+    print(f"Generated Prompt:\n{prompt}")  # Debugging/logging
+
+    # Generate the answer from OpenAI
+    response = client.chat.completions.create(
+        model="gpt-4",  # Fixed typo in model name from "gpt-4o" to "gpt-4"
+        messages=[
+            {"role": "system", "content": "You are an expert scout leader. You are given a question and a context. You are to answer the question based on the context. You are to be helpful and respectful and align with scouting principles."},
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=2000,
+        temperature=0.7,
+    )
+    
+    # Print completion tokens
+    completion_tokens = count_tokens(response.choices[0].message.content)
+    print(f"Response tokens: {completion_tokens}")
+    print(f"Total tokens used (prompt + response): {total_tokens + completion_tokens}")
+    
+    return response.choices[0].message.content.strip()
+
 
 @app.post("/ask")
 def ask_question(
@@ -127,10 +167,12 @@ def ask_question(
 ):
     """
     Endpoint to handle user questions and return an AI-generated answer.
+    Accepts query parameters instead of JSON body.
     """
+    # URL decode the question
     decoded_question = unquote(question)
     print("Decoded Question: " + decoded_question)
-    
+    # Step 1: Retrieve relevant documents from Pinecone
     documents = retrieve_from_pinecone(decoded_question, top_k)
 
     if not documents:
@@ -138,8 +180,9 @@ def ask_question(
             status_code=404, detail="No relevant documents found in Pinecone."
         )
 
-    if any(documents):
-        answer = ask_gemini(documents, decoded_question)
+    # Step 2: Ask GPT with the combined content
+    if any(documents):  # Ensure at least one document has content
+        answer = ask_gpt(documents, decoded_question)
         print(answer)
         return {"question": decoded_question, "answer": answer}
     else:
@@ -148,5 +191,8 @@ def ask_question(
             detail="No content could be extracted from the retrieved documents.",
         )
 
+
+# Run the application
 if __name__ == "__main__":
+
     uvicorn.run(app, host="0.0.0.0", port=8080)
