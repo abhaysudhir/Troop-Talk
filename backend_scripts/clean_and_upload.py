@@ -20,11 +20,13 @@ print("="*80)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_ENV = "us-east-1"
+PINECONE_NAMESPACE = "Troop 125"
 
 print("\nCONFIGURATION:")
 print(f"OpenAI API Key: {'✓ Found' if OPENAI_API_KEY else '✗ Missing'}")
 print(f"Pinecone API Key: {'✓ Found' if PINECONE_API_KEY else '✗ Missing'}")
 print(f"Pinecone Environment: {PINECONE_ENV}")
+print(f"Pinecone Namespace: {PINECONE_NAMESPACE}")
 
 # Initialize OpenAI and Pinecone
 print("\nINITIALIZING CLIENTS...")
@@ -44,7 +46,7 @@ except Exception as e:
 
 # Set up Pinecone index
 INDEX_NAME = "boyscout-gpt-t125"
-print(f"\nCONNECTING TO PINECONE INDEX: {INDEX_NAME}")
+print(f"\nCONNECTING TO PINECONE INDEX: {INDEX_NAME} (Namespace: {PINECONE_NAMESPACE})")
 try:
     index = pinecone_client.Index(INDEX_NAME)
     print(f"✓ Successfully connected to Pinecone index '{INDEX_NAME}'")
@@ -53,8 +55,8 @@ except Exception as e:
     exit(1)
 
 # Directories for processing
-UNCLEANED_DIR = "50_ScoutBSA_Scrape" # Change between Uncleaned_Emails or Uncleaned_General_Info
-CLEANED_DIR = "Final_ScoutBSA_Scrape" # Change between Cleaned_Emails or Cleaned_General_Info
+UNCLEANED_DIR = "Uncleaned_Emails" # Change between Uncleaned_Emails or Uncleaned_General_Info
+CLEANED_DIR = "Cleaned_Emails" # Change between Cleaned_Emails or Cleaned_General_Info
 print(f"\nDIRECTORIES:")
 print(f"Input directory: {os.path.abspath(UNCLEANED_DIR)}")
 print(f"Output directory: {os.path.abspath(CLEANED_DIR)}")
@@ -456,10 +458,14 @@ for filename in os.listdir(UNCLEANED_DIR):
                         "chunk_text": chunk
                     }
                     
-                    index.upsert([(chunk_id, embedding, chunk_metadata)])
-                    print(f"  ✓ Uploaded chunk {i+1}/{len(chunks)}")
+                    # Add namespace to the upsert call
+                    index.upsert(
+                        vectors=[(chunk_id, embedding, chunk_metadata)],
+                        namespace=PINECONE_NAMESPACE
+                    )
+                    print(f"  ✓ Uploaded chunk {i+1}/{len(chunks)} to namespace '{PINECONE_NAMESPACE}'")
                 
-                print(f"  ✓ Successfully uploaded all chunks to Pinecone in {time.time() - upload_start:.2f} seconds")
+                print(f"  ✓ Successfully uploaded all chunks to Pinecone namespace '{PINECONE_NAMESPACE}' in {time.time() - upload_start:.2f} seconds")
                 
                 success_count += 1
                 print(f"  ✓ COMPLETE: Processed {filename} in {time.time() - file_start_time:.2f} seconds")
@@ -483,6 +489,7 @@ print(f"Total processing time: {total_time:.2f} seconds ({total_time/60:.2f} min
 if processed_count > 0:
     print(f"Average time per file: {total_time/processed_count:.2f} seconds")
 print(f"Success rate: {success_count/processed_count*100:.1f}% ({success_count}/{processed_count})")
+print(f"Data uploaded to namespace: {PINECONE_NAMESPACE}")
 print("="*80)
 print(f"SCRIPT COMPLETED: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 print("="*80)
