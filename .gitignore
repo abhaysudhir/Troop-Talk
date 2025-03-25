@@ -4,3 +4,5 @@ backend_scripts/Uncleaned_Emails/
 backend_scripts/Cleaned_Emails/
 .env
 Uncleaned_Emails_Archive/
+backend_scripts/50_ScoutBSA_Scrape/
+backend_scripts/Final_ScoutBSA_Scrape/
