@@ -69,7 +69,16 @@ def retrieve_from_pinecone(query, top_k=5):
         
         contexts = []
         for match in results["matches"]:
-            body = match["metadata"]["body"]
+            # Check for both old and new metadata formats, accidnetally uploaded different metadata for the website data
+            if "body" in match["metadata"]:
+                body = match["metadata"]["body"]
+            elif "chunk_text" in match["metadata"]:
+                body = match["metadata"]["chunk_text"]
+            else:
+                # Skip if neither key exists
+                print(f"Warning: Document missing both 'body' and 'chunk_text' fields. Available keys: {match['metadata'].keys()}")
+                continue
+                
             date = match["metadata"]["date"]
             from_ = match["metadata"]["from"]
             subject = match["metadata"]["subject"]
@@ -97,7 +106,7 @@ If the answer is not explicitly in the provided context, rely on general knowled
 
     # Format contexts into a single string
     context_text = "\n\n---\n\n".join([
-        f"Date: {date}\nFrom: {from_}\nSubject: {subject}\nRelevance: {score}\n\n{body}"
+        f"Date: {date}\nFrom: {from_}\nSubject: {subject}\nRelevance: {score:.4f}\n\n{body}"
         for date, from_, subject, score, body in contexts
     ])
 
