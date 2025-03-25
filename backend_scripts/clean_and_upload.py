@@ -55,7 +55,7 @@ except Exception as e:
     exit(1)
 
 # Directory for already cleaned files
-CLEANED_DIR = "Cleaned_Emails_Test"
+CLEANED_DIR = "Cleaned_Emails"
 print(f"\nDIRECTORY:")
 print(f"Input directory (already cleaned files): {os.path.abspath(CLEANED_DIR)}")
 
