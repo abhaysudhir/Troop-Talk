@@ -12,21 +12,19 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
-print("\n" + "="*80) 
-print(f"UPLOAD-ONLY SCRIPT STARTED: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+print("\n" + "="*80)
+print(f"SCRIPT STARTED: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 print("="*80)
 
 # API keys and configurations
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_ENV = "us-east-1"
-PINECONE_NAMESPACE = "Troop 125"
 
 print("\nCONFIGURATION:")
 print(f"OpenAI API Key: {'✓ Found' if OPENAI_API_KEY else '✗ Missing'}")
 print(f"Pinecone API Key: {'✓ Found' if PINECONE_API_KEY else '✗ Missing'}")
 print(f"Pinecone Environment: {PINECONE_ENV}")
-print(f"Pinecone Namespace: {PINECONE_NAMESPACE}")
 
 # Initialize OpenAI and Pinecone
 print("\nINITIALIZING CLIENTS...")
@@ -54,20 +52,236 @@ except Exception as e:
     print(f"✗ Error connecting to Pinecone index: {e}")
     exit(1)
 
-# Directory for already cleaned files
-CLEANED_DIR = "Cleaned_Emails"
-print(f"\nDIRECTORY:")
-print(f"Input directory (already cleaned files): {os.path.abspath(CLEANED_DIR)}")
+# Directories for processing
+UNCLEANED_DIR = "Uncleaned_Emails" # Change between Uncleaned_Emails or Uncleaned_General_Info
+CLEANED_DIR = "Cleaned_Emails" # Change between Cleaned_Emails or Cleaned_General_Info
+print(f"\nDIRECTORIES:")
+print(f"Input directory: {os.path.abspath(UNCLEANED_DIR)}")
+print(f"Output directory: {os.path.abspath(CLEANED_DIR)}")
 
-if not os.path.exists(CLEANED_DIR):
-    print(f"✗ Input directory '{CLEANED_DIR}' does not exist!")
+if not os.path.exists(UNCLEANED_DIR):
+    print(f"✗ Input directory '{UNCLEANED_DIR}' does not exist!")
     exit(1)
 else:
     print(f"✓ Input directory exists")
-    file_count = len([f for f in os.listdir(CLEANED_DIR) if os.path.isfile(os.path.join(CLEANED_DIR, f))])
+    file_count = len([f for f in os.listdir(UNCLEANED_DIR) if os.path.isfile(os.path.join(UNCLEANED_DIR, f))])
     print(f"  Found {file_count} files in input directory")
 
-# Function to chunk text
+os.makedirs(CLEANED_DIR, exist_ok=True)
+print(f"✓ Output directory ready")
+
+# Allowed file extensions
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".txt", ".md"}
+print(f"\nALLOWED EXTENSIONS: {', '.join(ALLOWED_EXTENSIONS)}")
+
+
+# Helper functions for content extraction
+def extract_pdf_content(file_path):
+    print(f"  Extracting content from PDF: {os.path.basename(file_path)}")
+    start_time = time.time()
+    try:
+        reader = PdfReader(file_path)
+        page_count = len(reader.pages)
+        print(f"  PDF has {page_count} pages")
+        
+        content = []
+        for i, page in enumerate(reader.pages):
+            page_text = page.extract_text()
+            content.append(page_text)
+            print(f"  Extracted page {i+1}/{page_count} ({len(page_text)} characters)")
+        
+        full_content = "\n".join(content)
+        print(f"  ✓ PDF extraction complete - {len(full_content)} total characters in {time.time() - start_time:.2f} seconds")
+        return full_content
+    except Exception as e:
+        print(f"  ✗ Error reading PDF: {e}")
+        return f"Error reading PDF: {e}"
+
+
+def extract_docx_content(file_path):
+    print(f"  Extracting content from DOCX: {os.path.basename(file_path)}")
+    start_time = time.time()
+    try:
+        doc = docx.Document(file_path)
+        paragraph_count = len(doc.paragraphs)
+        print(f"  DOCX has {paragraph_count} paragraphs")
+        
+        content = "\n".join(paragraph.text for paragraph in doc.paragraphs)
+        print(f"  ✓ DOCX extraction complete - {len(content)} total characters in {time.time() - start_time:.2f} seconds")
+        return content
+    except Exception as e:
+        print(f"  ✗ Error reading DOCX: {e}")
+        return f"Error reading DOCX: {e}"
+
+
+def extract_xlsx_content(file_path):
+    print(f"  Extracting content from XLSX: {os.path.basename(file_path)}")
+    start_time = time.time()
+    try:
+        wb = openpyxl.load_workbook(file_path, data_only=True)
+        sheet_count = len(wb.sheetnames)
+        print(f"  XLSX has {sheet_count} sheets: {', '.join(wb.sheetnames)}")
+        
+        content = []
+        for sheet in wb:
+            row_count = sheet.max_row
+            col_count = sheet.max_column
+            print(f"  Processing sheet '{sheet.title}' with {row_count} rows and {col_count} columns")
+            
+            content.append(f"Sheet: {sheet.title}")
+            for row in sheet.iter_rows(values_only=True):
+                content.append("\t".join(str(cell or "") for cell in row))
+        
+        full_content = "\n".join(content)
+        print(f"  ✓ XLSX extraction complete - {len(full_content)} total characters in {time.time() - start_time:.2f} seconds")
+        return full_content
+    except Exception as e:
+        print(f"  ✗ Error reading XLSX: {e}")
+        return f"Error reading XLSX: {e}"
+
+
+def extract_txt_content(file_path):
+    print(f"  Extracting content from TXT: {os.path.basename(file_path)}")
+    start_time = time.time()
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+        print(f"  ✓ TXT extraction complete - {len(content)} total characters in {time.time() - start_time:.2f} seconds")
+        return content
+    except Exception as e:
+        print(f"  ✗ Error reading TXT: {e}")
+        return f"Error reading TXT: {e}"
+
+
+def extract_markdown_content(file_path):
+    print(f"  Extracting content from Markdown: {os.path.basename(file_path)}")
+    start_time = time.time()
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+        print(f"  ✓ Markdown extraction complete - {len(content)} total characters in {time.time() - start_time:.2f} seconds")
+        return content
+    except Exception as e:
+        print(f"  ✗ Error reading Markdown: {e}")
+        return f"Error reading Markdown: {e}"
+
+
+def remove_empty_lines(text):
+    print(f"  Removing empty lines from text ({len(text)} characters)")
+    lines_before = text.count('\n') + 1
+    cleaned_text = "\n".join(line for line in text.split("\n") if line.strip() != "")
+    lines_after = cleaned_text.count('\n') + 1
+    print(f"  ✓ Removed {lines_before - lines_after} empty lines")
+    return cleaned_text
+
+
+# Function to clean email
+def clean_email(file_path):
+    print(f"  Processing email file: {os.path.basename(file_path)}")
+    start_time = time.time()
+    
+    with open(file_path, "r", encoding="utf-8") as file:
+        msg = email.message_from_file(file, policy=default)
+
+    subject = msg.get("Subject", "No Subject")
+    sender = msg.get("From", "Unknown Sender")
+    date = msg.get("Date", "No Date")
+    
+    print(f"  Email metadata:")
+    print(f"    Subject: {subject}")
+    print(f"    From: {sender}")
+    print(f"    Date: {date}")
+    
+    body = []
+    attachments = []
+
+    if msg.is_multipart():
+        print(f"  Email is multipart")
+        part_count = 0
+        for part in msg.walk():
+            part_count += 1
+            content_type = part.get_content_type()
+            disposition = part.get("Content-Disposition", None)
+            
+            print(f"  Processing part {part_count}: {content_type}, disposition: {disposition}")
+
+            if content_type == "text/plain" and (
+                not disposition or "attachment" not in disposition
+            ):
+                try:
+                    part_content = part.get_payload(decode=True).decode(
+                        part.get_content_charset() or "utf-8"
+                    )
+                    body.append(part_content)
+                    print(f"    ✓ Added text part ({len(part_content)} characters)")
+                except Exception as e:
+                    error_msg = f"Error decoding body part: {e}"
+                    body.append(error_msg)
+                    print(f"    ✗ {error_msg}")
+            elif disposition and "attachment" in disposition:
+                filename = part.get_filename()
+                if filename:
+                    print(f"    Found attachment: {filename}")
+                    ext = os.path.splitext(filename)[1].lower()
+                    if ext in ALLOWED_EXTENSIONS:
+                        print(f"    Processing attachment with extension {ext}")
+                        temp_path = os.path.join(CLEANED_DIR, filename)
+                        with open(temp_path, "wb") as temp_file:
+                            temp_file.write(part.get_payload(decode=True))
+                        
+                        attachment_content = ""
+                        if ext == ".pdf":
+                            attachment_content = extract_pdf_content(temp_path)
+                        elif ext == ".docx":
+                            attachment_content = extract_docx_content(temp_path)
+                        elif ext == ".xlsx":
+                            attachment_content = extract_xlsx_content(temp_path)
+                        elif ext == ".txt":
+                            attachment_content = extract_txt_content(temp_path)
+                        elif ext == ".md":
+                            attachment_content = extract_markdown_content(temp_path)
+                        
+                        attachments.append(attachment_content)
+                        print(f"    ✓ Processed attachment: {filename} ({len(attachment_content)} characters)")
+                        os.remove(temp_path)
+                        print(f"    ✓ Removed temporary file: {temp_path}")
+                    else:
+                        print(f"    ✗ Skipping attachment with unsupported extension: {ext}")
+    else:
+        print(f"  Email is single-part")
+        try:
+            part_content = msg.get_payload(decode=True).decode(
+                msg.get_content_charset() or "utf-8"
+            )
+            body.append(part_content)
+            print(f"    ✓ Added email body ({len(part_content)} characters)")
+        except Exception as e:
+            error_msg = f"Error decoding single-part email: {e}"
+            body.append(error_msg)
+            print(f"    ✗ {error_msg}")
+
+    cleaned_body = remove_empty_lines("\n".join(body))
+    print(f"  Email body: {len(cleaned_body)} characters after cleaning")
+    
+    attachments_text = ""
+    if attachments:
+        attachments_text = "\n\n".join(attachments)
+        print(f"  Attachments: {len(attachments)} with total {len(attachments_text)} characters")
+    
+    full_content = f"Subject: {subject}\nFrom: {sender}\nDate: {date}\n\n{cleaned_body}"
+    if attachments_text:
+        full_content += f"\n\n{attachments_text}"
+    
+    print(f"  ✓ Email processing complete - {len(full_content)} total characters in {time.time() - start_time:.2f} seconds")
+    
+    return (
+        full_content,
+        subject,
+        sender,
+        date,
+    )
+
+
 def chunk_text(text, chunk_size=400):
     """
     Split text into chunks of approximately chunk_size tokens.
@@ -137,6 +351,7 @@ def chunk_text(text, chunk_size=400):
     
     return chunks
 
+
 # Function to generate embeddings
 def embed_text(text):
     print(f"  Generating embedding for text ({len(text)} characters)")
@@ -155,57 +370,64 @@ def embed_text(text):
         print(f"  ✗ Error generating embedding: {e}")
         raise
 
-# Process and upload files
+
+# Process and upload emails
 print("\n" + "="*80)
-print("STARTING UPLOAD OF PRE-CLEANED FILES")
+print("STARTING DOCUMENT PROCESSING")
 print("="*80)
 
-file_count = len([f for f in os.listdir(CLEANED_DIR) if f.endswith(".txt")])
-print(f"Found {file_count} .txt files to upload")
+file_count = len([f for f in os.listdir(UNCLEANED_DIR) if f.endswith((".eml", ".txt", ".md"))])
+print(f"Found {file_count} .eml, .txt, and .md files to process")
 
 processed_count = 0
 success_count = 0
 error_count = 0
 start_time_all = time.time()
 
-for filename in os.listdir(CLEANED_DIR):
-    if filename.endswith(".txt"):
+for filename in os.listdir(UNCLEANED_DIR):
+    if filename.endswith((".eml", ".txt", ".md")):
         processed_count += 1
         print(f"\n[{processed_count}/{file_count}] Processing: {filename}")
         file_start_time = time.time()
-        file_path = os.path.join(CLEANED_DIR, filename)
+        file_path = os.path.join(UNCLEANED_DIR, filename)
         
         try:
-            # Extract basic metadata from filename
-            base_name = os.path.splitext(filename)[0]
-            
-            # Read the file content
-            print(f"  Reading file for upload")
-            with open(file_path, "r", encoding="utf-8") as file:
-                text = file.read()
-            print(f"  ✓ Read {len(text)} characters from file")
-            
-            # Try to extract metadata from the file content
-            # Assuming the first few lines might contain metadata like Subject, From, Date
-            lines = text.split('\n', 10)
-            
-            subject = base_name  # Default to filename
-            sender = "Unknown"
-            date = datetime.datetime.fromtimestamp(os.path.getmtime(file_path)).isoformat()
-            
-            # Try to extract metadata from file content if available
-            for line in lines[:10]:  # Check first 10 lines for metadata
-                if line.startswith("Subject:"):
-                    subject = line[8:].strip()
-                elif line.startswith("From:"):
-                    sender = line[5:].strip()
-                elif line.startswith("Date:"):
-                    date = line[5:].strip()
-            
-            print(f"  File metadata:")
-            print(f"    Subject: {subject}")
-            print(f"    From: {sender}")
-            print(f"    Date: {date}")
+            if filename.endswith(".eml"):
+                print(f"Processing as email file")
+                cleaned_content, subject, sender, date = clean_email(file_path)
+            else:  # For .txt and .md files
+                print(f"Processing as {'markdown' if filename.endswith('.md') else 'text'} file")
+                try:
+                    if filename.endswith(".md"):
+                        cleaned_content = extract_markdown_content(file_path)
+                    else:
+                        with open(file_path, 'r', encoding='utf-8') as file:
+                            cleaned_content = file.read()
+                    subject = os.path.splitext(filename)[0]  # Use filename as subject
+                    sender = "Text File" if filename.endswith(".txt") else "Markdown File"
+                    date = os.path.getmtime(file_path)  # Use file modification time as date
+                    print(f"  File details:")
+                    print(f"    Subject (filename): {subject}")
+                    print(f"    Size: {len(cleaned_content)} characters")
+                    print(f"    Modified: {datetime.datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')}")
+                except Exception as e:
+                    print(f"  ✗ Error processing file: {e}")
+                    error_count += 1
+                    continue
+
+            cleaned_file_path = os.path.join(
+                CLEANED_DIR, f"{os.path.splitext(filename)[0]}.txt"
+            )
+            print(f"  Saving cleaned content to: {cleaned_file_path}")
+            with open(cleaned_file_path, "w", encoding="utf-8") as cleaned_file:
+                cleaned_file.write(cleaned_content)
+            print(f"  ✓ Saved cleaned file ({len(cleaned_content)} characters)")
+
+            # Read the cleaned file and upload its content
+            print(f"  Reading cleaned file for upload")
+            with open(cleaned_file_path, "r", encoding="utf-8") as cleaned_file:
+                text = cleaned_file.read()
+            print(f"  ✓ Read {len(text)} characters from cleaned file")
 
             try:
                 print(f"  Generating embeddings and uploading chunks to Pinecone")
@@ -234,10 +456,7 @@ for filename in os.listdir(CLEANED_DIR):
                         "chunk_text": chunk
                     }
                     
-                    index.upsert(
-                        vectors=[(chunk_id, embedding, chunk_metadata)],
-                        namespace=PINECONE_NAMESPACE
-                    )
+                    index.upsert([(chunk_id, embedding, chunk_metadata)])
                     print(f"  ✓ Uploaded chunk {i+1}/{len(chunks)}")
                 
                 print(f"  ✓ Successfully uploaded all chunks to Pinecone in {time.time() - upload_start:.2f} seconds")
