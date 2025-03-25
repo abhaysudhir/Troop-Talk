@@ -70,7 +70,7 @@ os.makedirs(CLEANED_DIR, exist_ok=True)
 print(f"✓ Output directory ready")
 
 # Allowed file extensions
-ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".txt"}
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".txt", ".md"}
 print(f"\nALLOWED EXTENSIONS: {', '.join(ALLOWED_EXTENSIONS)}")
 
 
@@ -152,6 +152,19 @@ def extract_txt_content(file_path):
         return f"Error reading TXT: {e}"
 
 
+def extract_markdown_content(file_path):
+    print(f"  Extracting content from Markdown: {os.path.basename(file_path)}")
+    start_time = time.time()
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+        print(f"  ✓ Markdown extraction complete - {len(content)} total characters in {time.time() - start_time:.2f} seconds")
+        return content
+    except Exception as e:
+        print(f"  ✗ Error reading Markdown: {e}")
+        return f"Error reading Markdown: {e}"
+
+
 def remove_empty_lines(text):
     print(f"  Removing empty lines from text ({len(text)} characters)")
     lines_before = text.count('\n') + 1
@@ -224,6 +237,8 @@ def clean_email(file_path):
                             attachment_content = extract_xlsx_content(temp_path)
                         elif ext == ".txt":
                             attachment_content = extract_txt_content(temp_path)
+                        elif ext == ".md":
+                            attachment_content = extract_markdown_content(temp_path)
                         
                         attachments.append(attachment_content)
                         print(f"    ✓ Processed attachment: {filename} ({len(attachment_content)} characters)")
@@ -295,8 +310,8 @@ print("\n" + "="*80)
 print("STARTING DOCUMENT PROCESSING")
 print("="*80)
 
-file_count = len([f for f in os.listdir(UNCLEANED_DIR) if f.endswith((".eml", ".txt"))])
-print(f"Found {file_count} .eml and .txt files to process")
+file_count = len([f for f in os.listdir(UNCLEANED_DIR) if f.endswith((".eml", ".txt", ".md"))])
+print(f"Found {file_count} .eml, .txt, and .md files to process")
 
 processed_count = 0
 success_count = 0
@@ -304,7 +319,7 @@ error_count = 0
 start_time_all = time.time()
 
 for filename in os.listdir(UNCLEANED_DIR):
-    if filename.endswith((".eml", ".txt")):
+    if filename.endswith((".eml", ".txt", ".md")):
         processed_count += 1
         print(f"\n[{processed_count}/{file_count}] Processing: {filename}")
         file_start_time = time.time()
@@ -314,20 +329,23 @@ for filename in os.listdir(UNCLEANED_DIR):
             if filename.endswith(".eml"):
                 print(f"Processing as email file")
                 cleaned_content, subject, sender, date = clean_email(file_path)
-            else:  # For .txt files
-                print(f"Processing as text file")
+            else:  # For .txt and .md files
+                print(f"Processing as {'markdown' if filename.endswith('.md') else 'text'} file")
                 try:
-                    with open(file_path, 'r', encoding='utf-8') as file:
-                        cleaned_content = file.read()
+                    if filename.endswith(".md"):
+                        cleaned_content = extract_markdown_content(file_path)
+                    else:
+                        with open(file_path, 'r', encoding='utf-8') as file:
+                            cleaned_content = file.read()
                     subject = os.path.splitext(filename)[0]  # Use filename as subject
-                    sender = "Text File"
+                    sender = "Text File" if filename.endswith(".txt") else "Markdown File"
                     date = os.path.getmtime(file_path)  # Use file modification time as date
-                    print(f"  Text file details:")
+                    print(f"  File details:")
                     print(f"    Subject (filename): {subject}")
                     print(f"    Size: {len(cleaned_content)} characters")
                     print(f"    Modified: {datetime.datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')}")
                 except Exception as e:
-                    print(f"  ✗ Error processing text file: {e}")
+                    print(f"  ✗ Error processing file: {e}")
                     error_count += 1
                     continue
 
