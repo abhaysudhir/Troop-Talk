@@ -24,10 +24,10 @@ genai.configure(api_key=GOOGLE_API_KEY)
 
 # Configure Gemini model
 generation_config = {
-    "temperature": 0.7,
+    "temperature": 0.3,
     "top_p": 0.95,
-    "top_k": 40,
-    "max_output_tokens": 8000,
+    "top_k": 20,
+    "max_output_tokens": 2000,
     "response_mime_type": "text/plain",
 }
 
@@ -138,7 +138,7 @@ def ask_gemini(contexts, question):
     Uses Gemini to answer a question based on the provided contexts.
     """
     system_prompt = """You are an expert scout leader. You are a highly specialized assistant designed to answer questions about Boy Scouts of America (BSA) programs, policies, activities, and procedures. Give all answers in markdown format. Be clear, concise, nice, respectful and helpful and align with scouting principles. I want all your responses to be in markdown format.
-    Keep your answers condensed, short and actionable. this is very important Keep your answers condensed, short and actionable. this is very important
+    Keep your answers condensed, short and MAKE SURE THAT IT DIRECTLY ADDRESSES THE QUESTION
 
 If the answer is not explicitly in the provided context, rely on general knowledge about Boy Scouts, including:
 1. BSA rank advancements, merit badges, and leadership roles
