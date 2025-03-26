@@ -175,14 +175,16 @@ If the answer is not explicitly in the provided context, rely on general knowled
 @app.post("/ask")
 def ask_question(
     question: str = Query(..., description="The question to ask the AI"),
-    troop_top_k: int = Query(3, description="Number of top results to retrieve from Troop 125 namespace"),
-    bsa_top_k: int = Query(2, description="Number of top results to retrieve from BSA Website Data namespace"),
 ):
     """
     Endpoint to handle user questions and return an AI-generated answer.
     """
     decoded_question = unquote(question)
     print("Decoded Question: " + decoded_question)
+    
+    # Retrieve documents from both namespaces with fixed top_k values
+    troop_top_k = 15  # Fixed value for Troop 125 namespace
+    bsa_top_k = 10    # Fixed value for BSA Website Data namespace
     
     # Retrieve documents from both namespaces
     troop_documents = retrieve_from_troop125(decoded_question, troop_top_k)
