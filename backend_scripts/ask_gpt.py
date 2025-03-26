@@ -49,9 +49,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def retrieve_from_pinecone(query, top_k=5):
+def retrieve_from_troop125(query, top_k=15):
     """
-    Retrieves the most relevant documents from Pinecone based on the query.
+    Retrieves the most relevant documents from Pinecone's "Troop 125" namespace.
     """
     try:
         # Generate query embedding using OpenAI embeddings
@@ -70,7 +70,7 @@ def retrieve_from_pinecone(query, top_k=5):
         
         contexts = []
         for match in results["matches"]:
-            # Check for both old and new metadata formats, accidnetally uploaded different metadata for the website data
+            # Check for both old and new metadata formats
             if "body" in match["metadata"]:
                 body = match["metadata"]["body"]
             elif "chunk_text" in match["metadata"]:
@@ -88,7 +88,49 @@ def retrieve_from_pinecone(query, top_k=5):
         return contexts
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Error querying Pinecone: {str(e)}"
+            status_code=500, detail=f"Error querying Pinecone Troop 125 namespace: {str(e)}"
+        )
+
+def retrieve_from_bsa_website(query, top_k=10):
+    """
+    Retrieves the most relevant documents from Pinecone's "BSA Website Data" namespace.
+    """
+    try:
+        # Generate query embedding using OpenAI embeddings
+        embedding_response = openai_client.embeddings.create(
+            model="text-embedding-ada-002", input=query
+        )
+        query_embedding = embedding_response.data[0].embedding
+
+        results = index.query(
+            vector=query_embedding,
+            top_k=top_k,
+            include_metadata=True,
+            include_values=True,
+            namespace="BSA Website Data"
+        )
+        
+        contexts = []
+        for match in results["matches"]:
+            # Check for both old and new metadata formats
+            if "body" in match["metadata"]:
+                body = match["metadata"]["body"]
+            elif "chunk_text" in match["metadata"]:
+                body = match["metadata"]["chunk_text"]
+            else:
+                # Skip if neither key exists
+                print(f"Warning: Document missing both 'body' and 'chunk_text' fields. Available keys: {match['metadata'].keys()}")
+                continue
+                
+            date = match["metadata"]["date"]
+            from_ = match["metadata"]["from"]
+            subject = match["metadata"]["subject"]
+            score = match["score"]
+            contexts.append((date, from_, subject, score, body))
+        return contexts
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error querying Pinecone BSA Website Data namespace: {str(e)}"
         )
 
 def ask_gemini(contexts, question):
@@ -133,7 +175,8 @@ If the answer is not explicitly in the provided context, rely on general knowled
 @app.post("/ask")
 def ask_question(
     question: str = Query(..., description="The question to ask the AI"),
-    top_k: int = Query(5, description="Number of top results to retrieve"),
+    troop_top_k: int = Query(3, description="Number of top results to retrieve from Troop 125 namespace"),
+    bsa_top_k: int = Query(2, description="Number of top results to retrieve from BSA Website Data namespace"),
 ):
     """
     Endpoint to handle user questions and return an AI-generated answer.
@@ -141,15 +184,20 @@ def ask_question(
     decoded_question = unquote(question)
     print("Decoded Question: " + decoded_question)
     
-    documents = retrieve_from_pinecone(decoded_question, top_k)
-
-    if not documents:
+    # Retrieve documents from both namespaces
+    troop_documents = retrieve_from_troop125(decoded_question, troop_top_k)
+    bsa_documents = retrieve_from_bsa_website(decoded_question, bsa_top_k)
+    
+    # Combine the documents
+    all_documents = troop_documents + bsa_documents
+    
+    if not all_documents:
         raise HTTPException(
             status_code=404, detail="No relevant documents found in Pinecone."
         )
 
-    if any(documents):
-        answer = ask_gemini(documents, decoded_question)
+    if any(all_documents):
+        answer = ask_gemini(all_documents, decoded_question)
         print(answer)
         return {"question": decoded_question, "answer": answer}
     else:

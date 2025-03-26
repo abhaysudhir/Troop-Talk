@@ -10,4 +10,4 @@
 - [ ] Create Namespace for New Troop
 
 - [x] Create a separate namespace with just website data
-- [ ] Add in ability to query webiste data + troop data -> send to model
+- [x] Add in ability to query webiste data + troop data -> send to model
