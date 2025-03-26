@@ -9,5 +9,6 @@
 - [ ] Talk to Aarush about Integrating TroopTalk in his Troop
 - [ ] Create Namespace for New Troop
 
+
 - [x] Create a separate namespace with just website data
 - [x] Add in ability to query webiste data + troop data -> send to model
