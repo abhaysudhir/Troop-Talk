@@ -65,6 +65,7 @@ def retrieve_from_pinecone(query, top_k=5):
             top_k=top_k,
             include_metadata=True,
             include_values=True,
+            namespace="Troop 125"
         )
         
         contexts = []
