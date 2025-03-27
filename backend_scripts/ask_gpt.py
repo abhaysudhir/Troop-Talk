@@ -17,6 +17,10 @@ print(GOOGLE_API_KEY)
 PINECONE_ENV = "us-east-1"
 INDEX_NAME = "boyscout-gpt-t125"
 
+# Query configurations
+TROOP_TOP_K = 45  # Fixed value for Troop 125 namespace
+BSA_TOP_K = 30    # Fixed value for BSA Website Data namespace
+
 # Initialize clients
 openai_client = OpenAI(api_key=OPENAI_API_KEY)  # For embeddings only
 pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
@@ -182,36 +186,32 @@ def ask_question(
     decoded_question = unquote(question)
     print("Decoded Question: " + decoded_question)
     
-    # Retrieve documents from both namespaces with fixed top_k values
-    troop_top_k = 15  # Fixed value for Troop 125 namespace
-    bsa_top_k = 10    # Fixed value for BSA Website Data namespace
-    
     # Retrieve documents from both namespaces
-    troop_documents = retrieve_from_troop125(decoded_question, troop_top_k)
-    bsa_documents = retrieve_from_bsa_website(decoded_question, bsa_top_k)
+    troop_documents = retrieve_from_troop125(decoded_question, TROOP_TOP_K)
+    bsa_documents = retrieve_from_bsa_website(decoded_question, BSA_TOP_K)
     
     # Comment out previous debugging code
-    # # Print out all information from Troop 125 namespace
-    # print("\n----- DOCUMENTS FROM TROOP 125 NAMESPACE -----")
-    # for i, doc in enumerate(troop_documents):
-    #     date, from_, subject, score, body = doc
-    #     print(f"\nDOCUMENT #{i+1} (Score: {score:.4f}):")
-    #     print(f"Date: {date}")
-    #     print(f"From: {from_}")
-    #     print(f"Subject: {subject}")
-    #     print(f"Body: {body}")
-    #     print("-" * 50)
+    # Print out all information from Troop 125 namespace
+    print("\n----- DOCUMENTS FROM TROOP 125 NAMESPACE -----")
+    for i, doc in enumerate(troop_documents):
+        date, from_, subject, score, body = doc
+        print(f"\nDOCUMENT #{i+1} (Score: {score:.4f}):")
+        print(f"Date: {date}")
+        print(f"From: {from_}")
+        print(f"Subject: {subject}")
+        print(f"Body: {body}")
+        print("-" * 50)
     
-    # # Print out all information from BSA Website Data namespace
-    # print("\n----- DOCUMENTS FROM BSA WEBSITE DATA NAMESPACE -----")
-    # for i, doc in enumerate(bsa_documents):
-    #     date, from_, subject, score, body = doc
-    #     print(f"\nDOCUMENT #{i+1} (Score: {score:.4f}):")
-    #     print(f"Date: {date}")
-    #     print(f"From: {from_}")
-    #     print(f"Subject: {subject}")
-    #     print(f"Body: {body}")
-    #     print("-" * 50)
+    # Print out all information from BSA Website Data namespace
+    print("\n----- DOCUMENTS FROM BSA WEBSITE DATA NAMESPACE -----")
+    for i, doc in enumerate(bsa_documents):
+        date, from_, subject, score, body = doc
+        print(f"\nDOCUMENT #{i+1} (Score: {score:.4f}):")
+        print(f"Date: {date}")
+        print(f"From: {from_}")
+        print(f"Subject: {subject}")
+        print(f"Body: {body}")
+        print("-" * 50)
     
     # Combine the documents
     all_documents = troop_documents + bsa_documents
