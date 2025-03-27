@@ -20,7 +20,26 @@ print("="*80)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_ENV = "us-east-1"
-PINECONE_NAMESPACE = "Troop 125"
+
+# Get user input for namespace
+print("\nNAMESPACE SELECTION")
+print("1. Troop 125 (emails and troop documents)")
+print("2. BSA Website Data (documents from scouting.org)")
+namespace_choice = ""
+while namespace_choice not in ["1", "2"]:
+    namespace_choice = input("Select namespace (1 or 2): ").strip()
+
+if namespace_choice == "1":
+    PINECONE_NAMESPACE = "Troop 125"
+else:
+    PINECONE_NAMESPACE = "BSA Website Data"
+
+# Confirm namespace selection
+print(f"\nYou selected: {PINECONE_NAMESPACE}")
+confirmation = input(f"Confirm uploading to '{PINECONE_NAMESPACE}' namespace? (y/n): ").strip().lower()
+if confirmation != 'y':
+    print("Operation cancelled by user.")
+    exit(0)
 
 print("\nCONFIGURATION:")
 print(f"OpenAI API Key: {'✓ Found' if OPENAI_API_KEY else '✗ Missing'}")
