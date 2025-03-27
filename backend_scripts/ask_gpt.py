@@ -190,6 +190,29 @@ def ask_question(
     troop_documents = retrieve_from_troop125(decoded_question, troop_top_k)
     bsa_documents = retrieve_from_bsa_website(decoded_question, bsa_top_k)
     
+    # Comment out previous debugging code
+    # # Print out all information from Troop 125 namespace
+    # print("\n----- DOCUMENTS FROM TROOP 125 NAMESPACE -----")
+    # for i, doc in enumerate(troop_documents):
+    #     date, from_, subject, score, body = doc
+    #     print(f"\nDOCUMENT #{i+1} (Score: {score:.4f}):")
+    #     print(f"Date: {date}")
+    #     print(f"From: {from_}")
+    #     print(f"Subject: {subject}")
+    #     print(f"Body: {body}")
+    #     print("-" * 50)
+    
+    # # Print out all information from BSA Website Data namespace
+    # print("\n----- DOCUMENTS FROM BSA WEBSITE DATA NAMESPACE -----")
+    # for i, doc in enumerate(bsa_documents):
+    #     date, from_, subject, score, body = doc
+    #     print(f"\nDOCUMENT #{i+1} (Score: {score:.4f}):")
+    #     print(f"Date: {date}")
+    #     print(f"From: {from_}")
+    #     print(f"Subject: {subject}")
+    #     print(f"Body: {body}")
+    #     print("-" * 50)
+    
     # Combine the documents
     all_documents = troop_documents + bsa_documents
     
