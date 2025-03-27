@@ -76,6 +76,24 @@ except Exception as e:
 # Directories for processing
 UNCLEANED_DIR = "Uncleaned_Emails" # Change between Uncleaned_Emails or Uncleaned_General_Info
 CLEANED_DIR = "Cleaned_Emails" # Change between Cleaned_Emails or Cleaned_General_Info
+
+# Confirm directory selections
+print(f"\nDIRECTORY CONFIGURATION:")
+print(f"Input directory: {os.path.abspath(UNCLEANED_DIR)}")
+print(f"Output directory: {os.path.abspath(CLEANED_DIR)}")
+
+dir_confirmation = input(f"\nAre these the correct directories? (y/n): ").strip().lower()
+if dir_confirmation != 'y':
+    new_input = input("Enter input directory path: ").strip()
+    if new_input:
+        UNCLEANED_DIR = new_input
+    new_output = input("Enter output directory path: ").strip()
+    if new_output:
+        CLEANED_DIR = new_output
+    print(f"\nUPDATED DIRECTORIES:")
+    print(f"Input directory: {os.path.abspath(UNCLEANED_DIR)}")
+    print(f"Output directory: {os.path.abspath(CLEANED_DIR)}")
+
 print(f"\nDIRECTORIES:")
 print(f"Input directory: {os.path.abspath(UNCLEANED_DIR)}")
 print(f"Output directory: {os.path.abspath(CLEANED_DIR)}")
@@ -95,6 +113,21 @@ print(f"✓ Output directory ready")
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".txt", ".md"}
 print(f"\nALLOWED EXTENSIONS: {', '.join(ALLOWED_EXTENSIONS)}")
 
+# Final confirmation before processing
+print("\n" + "="*80)
+print("OPERATION SUMMARY")
+print("="*80)
+print(f"You are about to:")
+print(f"1. Process files from: {os.path.abspath(UNCLEANED_DIR)}")
+print(f"2. Save cleaned files to: {os.path.abspath(CLEANED_DIR)}")
+print(f"3. Upload embeddings to Pinecone index '{INDEX_NAME}' in namespace '{PINECONE_NAMESPACE}'")
+print(f"4. Process {file_count} files found in the input directory")
+print("="*80)
+
+final_confirmation = input("\nAre you sure you want to proceed with these settings? (y/n): ").strip().lower()
+if final_confirmation != 'y':
+    print("Operation cancelled by user.")
+    exit(0)
 
 # Helper functions for content extraction
 def extract_pdf_content(file_path):
