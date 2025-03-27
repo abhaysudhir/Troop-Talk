@@ -11,6 +11,8 @@ Problems
 - [x] Too many tokens for ChatGPT to process
 
 Current Pincone Context Window: 03/08/2025 - 3/22/2025 -- All emails sent to whole troop
+Last Date of BSA Website Scraping: 03/25/2025
+Last Date of T125 Website Scraping: 03/26/2025
 
 troop-talk-website is a submodule now
 branch that will be used will be `official-branch` 
