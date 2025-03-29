@@ -4,16 +4,14 @@ from pinecone import Pinecone
 from urllib.parse import unquote
 import os
 import uvicorn
-import google.generativeai as genai
-from openai import OpenAI  # Still needed for embeddings
+from openai import OpenAI
 import dotenv
 
 dotenv.load_dotenv()
 # API keys and configurations
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # Still needed for embeddings
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # For embeddings
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-print(GOOGLE_API_KEY)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 PINECONE_ENV = "us-east-1"
 INDEX_NAME = "boyscout-gpt-t125"
 
@@ -23,22 +21,11 @@ BSA_TOP_K = 30    # Fixed value for BSA Website Data namespace
 
 # Initialize clients
 openai_client = OpenAI(api_key=OPENAI_API_KEY)  # For embeddings only
-pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
-genai.configure(api_key=GOOGLE_API_KEY)
-
-# Configure Gemini model
-generation_config = {
-    "temperature": 0.3,
-    "top_p": 0.95,
-    "top_k": 20,
-    "max_output_tokens": 2000,
-    "response_mime_type": "text/plain",
-}
-
-model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash",
-    generation_config=generation_config,
+openrouter_client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=OPENROUTER_API_KEY,
 )
+pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
 
 # Define Pinecone index
 index = pc.Index(INDEX_NAME)
@@ -137,19 +124,65 @@ def retrieve_from_bsa_website(query, top_k=10):
             status_code=500, detail=f"Error querying Pinecone BSA Website Data namespace: {str(e)}"
         )
 
-def ask_gemini(contexts, question):
+def ask_deepseek(contexts, question):
     """
-    Uses Gemini to answer a question based on the provided contexts.
+    Uses Deepseek model through OpenRouter to answer a question based on the provided contexts.
     """
-    system_prompt = """You are an expert scout leader. You are a highly specialized assistant designed to answer questions about Boy Scouts of America (BSA) programs, policies, activities, and procedures. Give all answers in markdown format. Be clear, concise, nice, respectful and helpful and align with scouting principles. I want all your responses to be in markdown format.
-    Keep your answers condensed, short and MAKE SURE THAT IT DIRECTLY ADDRESSES THE QUESTION
+    system_prompt = """You are an expert scout leader and BSA knowledge specialist, specifically focused on Troop 125. Your primary role is to provide accurate, helpful, and well-structured information about Troop 125's programs, policies, and procedures, supplemented by relevant BSA guidelines.
+    Give all answers in markdown format.
+    Make sure to keep answers concise and to the point.
+Key Responsibilities:
+1. Prioritize Troop-specific information over general BSA guidelines
+2. Provide clear, concise answers in markdown format
+3. Always maintain a respectful, encouraging tone aligned with Scouting values
+4. Prioritize accuracy and safety in all responses
+5. Directly address the user's question without unnecessary information
 
-If the answer is not explicitly in the provided context, rely on general knowledge about Boy Scouts, including:
-1. BSA rank advancements, merit badges, and leadership roles
-2. Campouts, service projects, and troop meetings
-3. Adult responsibilities like organizing events, safety protocols, and guiding Scouts
-4. Youth-led principles like the patrol method and leadership development
-5. If no direct answer is available, provide general guidance and suggest next steps"""
+When answering questions:
+- Start with Troop-specific information when available
+- Fall back to BSA guidelines when Troop 125 information is not available
+- Use bullet points or numbered lists for multiple steps or options
+- Include relevant BSA policy references when applicable
+- Provide practical examples when helpful
+- Keep responses focused and concise
+
+Knowledge Areas to Draw From (in order of priority):
+1. Troop 125 Specific Information
+   - Troop policies and procedures
+   - Local event schedules and requirements
+   - Troop-specific advancement processes
+   - Unit-specific leadership roles and responsibilities
+
+2. BSA Program Structure
+   - Rank advancements and requirements
+   - Merit badges and their requirements
+   - Leadership positions and responsibilities
+   - Eagle Scout process and requirements
+
+3. Troop Operations
+   - Meeting planning and execution
+   - Campout organization and safety
+   - Service project coordination
+   - Fundraising activities
+
+4. Scouting Principles
+   - Scout Oath and Law
+   - Youth-led leadership
+   - Patrol method
+   - Leave No Trace principles
+
+5. Adult Leadership
+   - Safety protocols and guidelines
+   - Event planning and risk management
+   - Youth protection policies
+   - Advancement tracking
+
+If the specific answer isn't in the provided context:
+1. First check if there's any Troop-specific guidance
+2. If not, provide general guidance based on BSA standards
+3. Suggest consulting with Troop leadership for specific details
+4. Recommend relevant BSA resources or documentation
+5. Offer to clarify or expand on any part of the response"""
 
     # Format contexts into a single string
     context_text = "\n\n---\n\n".join([
@@ -157,20 +190,21 @@ If the answer is not explicitly in the provided context, rely on general knowled
         for date, from_, subject, score, body in contexts
     ])
 
-    # Create chat session with system prompt
-    chat = model.start_chat(history=[
-        {"role": "user", "parts": [system_prompt]},
-        {"role": "model", "parts": ["I understand and will act as a knowledgeable scout leader, providing helpful and respectful guidance in markdown format."]}
-    ])
-
-    # Send context and question
-    prompt = f"Context:\n{context_text}\n\nQuestion: {question}\n\nProvide a clear, helpful answer in markdown format:"
-    
     try:
-        response = chat.send_message(prompt)
-        return response.text.strip()
+        completion = openrouter_client.chat.completions.create(
+            extra_headers={
+                "HTTP-Referer": "troop125.org",  # Site URL for rankings on openrouter.ai
+                "X-Title": "Troop 125 Scout Assistant",  # Site title for rankings on openrouter.ai
+            },
+            model="deepseek/deepseek-chat-v3-0324:free",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Context:\n{context_text}\n\nQuestion: {question}\n\nProvide a clear, helpful answer in markdown format:"}
+            ]
+        )
+        return completion.choices[0].message.content.strip()
     except Exception as e:
-        print(f"Error from Gemini: {str(e)}")
+        print(f"Error from Deepseek model: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Error generating response: {str(e)}"
@@ -190,29 +224,6 @@ def ask_question(
     troop_documents = retrieve_from_troop125(decoded_question, TROOP_TOP_K)
     bsa_documents = retrieve_from_bsa_website(decoded_question, BSA_TOP_K)
     
-    # Comment out previous debugging code
-    # Print out all information from Troop 125 namespace
-    print("\n----- DOCUMENTS FROM TROOP 125 NAMESPACE -----")
-    for i, doc in enumerate(troop_documents):
-        date, from_, subject, score, body = doc
-        print(f"\nDOCUMENT #{i+1} (Score: {score:.4f}):")
-        print(f"Date: {date}")
-        print(f"From: {from_}")
-        print(f"Subject: {subject}")
-        print(f"Body: {body}")
-        print("-" * 50)
-    
-    # Print out all information from BSA Website Data namespace
-    print("\n----- DOCUMENTS FROM BSA WEBSITE DATA NAMESPACE -----")
-    for i, doc in enumerate(bsa_documents):
-        date, from_, subject, score, body = doc
-        print(f"\nDOCUMENT #{i+1} (Score: {score:.4f}):")
-        print(f"Date: {date}")
-        print(f"From: {from_}")
-        print(f"Subject: {subject}")
-        print(f"Body: {body}")
-        print("-" * 50)
-    
     # Combine the documents
     all_documents = troop_documents + bsa_documents
     
@@ -222,7 +233,7 @@ def ask_question(
         )
 
     if any(all_documents):
-        answer = ask_gemini(all_documents, decoded_question)
+        answer = ask_deepseek(all_documents, decoded_question)
         print(answer)
         return {"question": decoded_question, "answer": answer}
     else:
