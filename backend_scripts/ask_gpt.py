@@ -1,11 +1,13 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pinecone import Pinecone
 from urllib.parse import unquote
 import os
 import uvicorn
 from openai import OpenAI
 import dotenv
+import asyncio
 
 dotenv.load_dotenv()
 # API keys and configurations
@@ -124,6 +126,99 @@ def retrieve_from_bsa_website(query, top_k=10):
             status_code=500, detail=f"Error querying Pinecone BSA Website Data namespace: {str(e)}"
         )
 
+async def ask_deepseek_stream(contexts, question):
+    """
+    Uses Deepseek model through OpenRouter to answer a question based on the provided contexts.
+    Returns a streaming response.
+    """
+    system_prompt = """You are an expert scout leader and BSA knowledge specialist, specifically focused on Troop 125. Your primary role is to provide accurate, helpful, and well-structured information about Troop 125's programs, policies, and procedures, supplemented by relevant BSA guidelines.
+    Give all answers in markdown format.
+    Make sure to keep answers concise and to the point.
+Key Responsibilities:
+1. Prioritize Troop-specific information over general BSA guidelines
+2. Provide clear, concise answers in markdown format
+3. Always maintain a respectful, encouraging tone aligned with Scouting values
+4. Prioritize accuracy and safety in all responses
+5. Directly address the user's question without unnecessary information
+
+When answering questions:
+- Start with Troop-specific information when available
+- Fall back to BSA guidelines when Troop 125 information is not available
+- Use bullet points or numbered lists for multiple steps or options
+- Include relevant BSA policy references when applicable
+- Provide practical examples when helpful
+- Keep responses focused and concise
+
+Knowledge Areas to Draw From (in order of priority):
+1. Troop 125 Specific Information
+   - Troop policies and procedures
+   - Local event schedules and requirements
+   - Troop-specific advancement processes
+   - Unit-specific leadership roles and responsibilities
+
+2. BSA Program Structure
+   - Rank advancements and requirements
+   - Merit badges and their requirements
+   - Leadership positions and responsibilities
+   - Eagle Scout process and requirements
+
+3. Troop Operations
+   - Meeting planning and execution
+   - Campout organization and safety
+   - Service project coordination
+   - Fundraising activities
+
+4. Scouting Principles
+   - Scout Oath and Law
+   - Youth-led leadership
+   - Patrol method
+   - Leave No Trace principles
+
+5. Adult Leadership
+   - Safety protocols and guidelines
+   - Event planning and risk management
+   - Youth protection policies
+   - Advancement tracking
+
+If the specific answer isn't in the provided context:
+1. First check if there's any Troop-specific guidance
+2. If not, provide general guidance based on BSA standards
+3. Suggest consulting with Troop leadership for specific details
+4. Recommend relevant BSA resources or documentation
+5. Offer to clarify or expand on any part of the response"""
+
+    # Format contexts into a single string
+    context_text = "\n\n---\n\n".join([
+        f"Date: {date}\nFrom: {from_}\nSubject: {subject}\nRelevance: {score:.4f}\n\n{body}"
+        for date, from_, subject, score, body in contexts
+    ])
+
+    try:
+        stream = openrouter_client.chat.completions.create(
+            extra_headers={
+                "HTTP-Referer": "troop125.org",  # Site URL for rankings on openrouter.ai
+                "X-Title": "Troop 125 Scout Assistant",  # Site title for rankings on openrouter.ai
+            },
+            model="deepseek/deepseek-chat-v3-0324:free",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Context:\n{context_text}\n\nQuestion: {question}\n\nProvide a clear, helpful answer in markdown format:"}
+            ],
+            stream=True
+        )
+        
+        for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                content = chunk.choices[0].delta.content
+                print(content, end="", flush=True)  # Print content as it streams without newlines
+                yield content
+    except Exception as e:
+        print(f"Error from Deepseek model: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating response: {str(e)}"
+        )
+
 def ask_deepseek(contexts, question):
     """
     Uses Deepseek model through OpenRouter to answer a question based on the provided contexts.
@@ -211,11 +306,11 @@ If the specific answer isn't in the provided context:
         )
 
 @app.post("/ask")
-def ask_question(
+async def ask_question(
     question: str = Query(..., description="The question to ask the AI"),
 ):
     """
-    Endpoint to handle user questions and return an AI-generated answer.
+    Endpoint to handle user questions and return an AI-generated answer with streaming.
     """
     decoded_question = unquote(question)
     print("Decoded Question: " + decoded_question)
@@ -233,9 +328,11 @@ def ask_question(
         )
 
     if any(all_documents):
-        answer = ask_deepseek(all_documents, decoded_question)
-        print(answer)
-        return {"question": decoded_question, "answer": answer}
+        # Return a streaming response
+        return StreamingResponse(
+            ask_deepseek_stream(all_documents, decoded_question),
+            media_type="text/plain"
+        )
     else:
         raise HTTPException(
             status_code=404,
