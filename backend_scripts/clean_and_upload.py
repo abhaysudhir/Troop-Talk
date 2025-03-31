@@ -37,6 +37,17 @@ elif namespace_choice == "2":
 else:
     PINECONE_NAMESPACE = "Rank Requirements & Merit Badge Info"
 
+# Get user input for chunking choice
+print("\nCHUNKING OPTION")
+print("1. Chunk documents (recommended for large documents)")
+print("2. Upload as single document (better for small documents)")
+chunking_choice = ""
+while chunking_choice not in ["1", "2"]:
+    chunking_choice = input("Select chunking option (1 or 2): ").strip()
+
+USE_CHUNKING = chunking_choice == "1"
+print(f"\nYou selected: {'Chunking enabled' if USE_CHUNKING else 'No chunking (single document upload)'}")
+
 # Confirm namespace selection
 print(f"\nYou selected: {PINECONE_NAMESPACE}")
 confirmation = input(f"Confirm uploading to '{PINECONE_NAMESPACE}' namespace? (y/n): ").strip().lower()
@@ -125,6 +136,7 @@ print(f"1. Process files from: {os.path.abspath(UNCLEANED_DIR)}")
 print(f"2. Save cleaned files to: {os.path.abspath(CLEANED_DIR)}")
 print(f"3. Upload embeddings to Pinecone index '{INDEX_NAME}' in namespace '{PINECONE_NAMESPACE}'")
 print(f"4. Process {file_count} files found in the input directory")
+print(f"5. Chunking: {'Enabled' if USE_CHUNKING else 'Disabled'}")
 print("="*80)
 
 final_confirmation = input("\nAre you sure you want to proceed with these settings? (y/n): ").strip().lower()
@@ -487,40 +499,64 @@ for filename in os.listdir(UNCLEANED_DIR):
             print(f"  ✓ Read {len(text)} characters from cleaned file")
 
             try:
-                print(f"  Generating embeddings and uploading chunks to Pinecone")
-                chunks = chunk_text(text)
-                
-                # Prepare base metadata
-                base_metadata = {
-                    "subject": subject, 
-                    "from": sender, 
-                    "date": date,
-                    "filename": filename,
-                    "processed_at": datetime.datetime.now().isoformat()
-                }
-                
-                # Process and upload each chunk
-                upload_start = time.time()
-                for i, chunk in enumerate(chunks):
-                    chunk_id = f"{filename}_chunk_{i+1}"
-                    embedding = embed_text(chunk)
+                if USE_CHUNKING:
+                    print(f"  Generating embeddings and uploading chunks to Pinecone")
+                    chunks = chunk_text(text)
                     
-                    # Add chunk-specific metadata
-                    chunk_metadata = {
-                        **base_metadata,
-                        "chunk_index": i + 1,
-                        "total_chunks": len(chunks),
-                        "chunk_text": chunk
+                    # Prepare base metadata
+                    base_metadata = {
+                        "subject": subject, 
+                        "from": sender, 
+                        "date": date,
+                        "filename": filename,
+                        "processed_at": datetime.datetime.now().isoformat()
                     }
                     
-                    # Add namespace to the upsert call
+                    # Process and upload each chunk
+                    upload_start = time.time()
+                    for i, chunk in enumerate(chunks):
+                        chunk_id = f"{filename}_chunk_{i+1}"
+                        embedding = embed_text(chunk)
+                        
+                        # Add chunk-specific metadata
+                        chunk_metadata = {
+                            **base_metadata,
+                            "chunk_index": i + 1,
+                            "total_chunks": len(chunks),
+                            "chunk_text": chunk
+                        }
+                        
+                        # Add namespace to the upsert call
+                        index.upsert(
+                            vectors=[(chunk_id, embedding, chunk_metadata)],
+                            namespace=PINECONE_NAMESPACE
+                        )
+                        print(f"  ✓ Uploaded chunk {i+1}/{len(chunks)} to namespace '{PINECONE_NAMESPACE}'")
+                    
+                    print(f"  ✓ Successfully uploaded all chunks to Pinecone namespace '{PINECONE_NAMESPACE}' in {time.time() - upload_start:.2f} seconds")
+                else:
+                    print(f"  Generating embedding and uploading as single document to Pinecone")
+                    upload_start = time.time()
+                    
+                    # Generate embedding for the entire document
+                    embedding = embed_text(text)
+                    
+                    # Prepare metadata
+                    metadata = {
+                        "subject": subject,
+                        "from": sender,
+                        "date": date,
+                        "filename": filename,
+                        "processed_at": datetime.datetime.now().isoformat(),
+                        "content": text
+                    }
+                    
+                    # Upload the entire document
                     index.upsert(
-                        vectors=[(chunk_id, embedding, chunk_metadata)],
+                        vectors=[(filename, embedding, metadata)],
                         namespace=PINECONE_NAMESPACE
                     )
-                    print(f"  ✓ Uploaded chunk {i+1}/{len(chunks)} to namespace '{PINECONE_NAMESPACE}'")
-                
-                print(f"  ✓ Successfully uploaded all chunks to Pinecone namespace '{PINECONE_NAMESPACE}' in {time.time() - upload_start:.2f} seconds")
+                    print(f"  ✓ Successfully uploaded document to Pinecone namespace '{PINECONE_NAMESPACE}' in {time.time() - upload_start:.2f} seconds")
                 
                 success_count += 1
                 print(f"  ✓ COMPLETE: Processed {filename} in {time.time() - file_start_time:.2f} seconds")
