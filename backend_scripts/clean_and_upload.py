@@ -25,14 +25,17 @@ PINECONE_ENV = "us-east-1"
 print("\nNAMESPACE SELECTION")
 print("1. Troop 125 (emails and troop documents)")
 print("2. BSA Website Data (documents from scouting.org)")
+print("3. Rank Requirements & Merit Badge Info")
 namespace_choice = ""
-while namespace_choice not in ["1", "2"]:
-    namespace_choice = input("Select namespace (1 or 2): ").strip()
+while namespace_choice not in ["1", "2", "3"]:
+    namespace_choice = input("Select namespace (1, 2, or 3): ").strip()
 
 if namespace_choice == "1":
     PINECONE_NAMESPACE = "Troop 125"
-else:
+elif namespace_choice == "2":
     PINECONE_NAMESPACE = "BSA Website Data"
+else:
+    PINECONE_NAMESPACE = "Rank Requirements & Merit Badge Info"
 
 # Confirm namespace selection
 print(f"\nYou selected: {PINECONE_NAMESPACE}")
@@ -74,8 +77,8 @@ except Exception as e:
     exit(1)
 
 # Directories for processing
-UNCLEANED_DIR = "Uncleaned_Emails" # Change between Uncleaned_Emails or Uncleaned_General_Info
-CLEANED_DIR = "Cleaned_Emails" # Change between Cleaned_Emails or Cleaned_General_Info
+UNCLEANED_DIR = "Uncleaned_Website_Info" # Change between Uncleaned_Emails or Uncleaned_General_Info
+CLEANED_DIR = "Cleaned_Website_Info" # Change between Cleaned_Emails or Cleaned_General_Info
 
 # Confirm directory selections
 print(f"\nDIRECTORY CONFIGURATION:")
