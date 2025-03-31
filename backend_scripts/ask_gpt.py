@@ -45,7 +45,7 @@ app.add_middleware(
 
 # Shared system prompt for both streaming and non-streaming functions
 SYSTEM_PROMPT = """You are an expert scout leader and BSA knowledge specialist, specifically focused on Troop 125. Your primary role is to provide accurate, helpful, and well-structured information about Troop 125's programs, policies, and procedures, supplemented by relevant BSA guidelines and official rank and merit badge requirements.
-Give all answers in markdown format. This is not an email so don't include an email signature, use Notes only when required
+Give all answers in markdown format. Use \n whenever you need to break a line. This is not an email so don't include an email signature, use Notes only when required
 Make sure to keep answers concise and to the point.
 Key Responsibilities:
 1. Prioritize Troop-specific information over general BSA guidelines
@@ -107,9 +107,10 @@ If the specific answer isn't in the provided context:
 4. Recommend relevant BSA resources or documentation
 5. Offer to clarify or expand on any part of the response"""
 
-def retrieve_from_troop125(query, top_k=15):
+def retrieve_from_troop125(query, top_k=15, min_score=None):
     """
     Retrieves the most relevant documents from Pinecone's "Troop 125" namespace.
+    If min_score is provided, only returns documents with score > min_score.
     """
     try:
         # Generate query embedding using OpenAI embeddings
@@ -128,6 +129,10 @@ def retrieve_from_troop125(query, top_k=15):
         
         contexts = []
         for match in results["matches"]:
+            # Filter by score if min_score is provided
+            if min_score is not None and match["score"] <= min_score:
+                continue
+                
             # Check for both old and new metadata formats
             if "body" in match["metadata"]:
                 body = match["metadata"]["body"]
@@ -149,9 +154,10 @@ def retrieve_from_troop125(query, top_k=15):
             status_code=500, detail=f"Error querying Pinecone Troop 125 namespace: {str(e)}"
         )
 
-def retrieve_from_bsa_website(query, top_k=10):
+def retrieve_from_bsa_website(query, top_k=10, min_score=None):
     """
     Retrieves the most relevant documents from Pinecone's "BSA Website Data" namespace.
+    If min_score is provided, only returns documents with score > min_score.
     """
     try:
         # Generate query embedding using OpenAI embeddings
@@ -170,6 +176,10 @@ def retrieve_from_bsa_website(query, top_k=10):
         
         contexts = []
         for match in results["matches"]:
+            # Filter by score if min_score is provided
+            if min_score is not None and match["score"] <= min_score:
+                continue
+                
             # Check for both old and new metadata formats
             if "body" in match["metadata"]:
                 body = match["metadata"]["body"]
@@ -191,9 +201,10 @@ def retrieve_from_bsa_website(query, top_k=10):
             status_code=500, detail=f"Error querying Pinecone BSA Website Data namespace: {str(e)}"
         )
 
-def retrieve_from_rank_mb_info(query, top_k=10):
+def retrieve_from_rank_mb_info(query, top_k=10, min_score=None):
     """
     Retrieves the most relevant documents from Pinecone's "Rank Requirements & Merit Badge Info" namespace.
+    If min_score is provided, only returns documents with score > min_score.
     """
     try:
         # Generate query embedding using OpenAI embeddings
@@ -212,6 +223,10 @@ def retrieve_from_rank_mb_info(query, top_k=10):
         
         contexts = []
         for match in results["matches"]:
+            # Filter by score if min_score is provided
+            if min_score is not None and match["score"] <= min_score:
+                continue
+                
             # Handle the metadata fields specific to this namespace
             # Expected fields: id, body, date, filename, from, processed_at, subject
             if "body" in match["metadata"]:
@@ -288,17 +303,30 @@ async def ask_question(
     decoded_question = unquote(question)
     print("Decoded Question: " + decoded_question)
     
-    # Retrieve documents from all namespaces
-    troop_documents = retrieve_from_troop125(decoded_question, TROOP_TOP_K)
-    bsa_documents = retrieve_from_bsa_website(decoded_question, BSA_TOP_K)
-    rank_mb_documents = retrieve_from_rank_mb_info(decoded_question, RANK_MB_TOP_K)
+    # Try with high threshold first (0.85)
+    troop_documents = retrieve_from_troop125(decoded_question, TROOP_TOP_K, min_score=0.85)
+    bsa_documents = retrieve_from_bsa_website(decoded_question, BSA_TOP_K, min_score=0.85)
+    rank_mb_documents = retrieve_from_rank_mb_info(decoded_question, RANK_MB_TOP_K, min_score=0.85)
     
-    # Print document counts for debugging
-    print(f"Retrieved {len(troop_documents)} documents from Troop 125 namespace")
-    print(f"Retrieved {len(bsa_documents)} documents from BSA Website Data namespace")
-    print(f"Retrieved {len(rank_mb_documents)} documents from Rank Requirements & Merit Badge Info namespace")
+    all_documents = troop_documents + bsa_documents + rank_mb_documents
+    print(f"Retrieved {len(all_documents)} total documents with score > 0.85")
     
-    # Log some info about the top documents from each source if available
+    # If we don't have enough documents, fall back to default (no score filtering)
+    if not all_documents:
+        print("No documents found with score > 0.85, falling back to default retrieval")
+        troop_documents = retrieve_from_troop125(decoded_question, TROOP_TOP_K)
+        bsa_documents = retrieve_from_bsa_website(decoded_question, BSA_TOP_K)
+        rank_mb_documents = retrieve_from_rank_mb_info(decoded_question, RANK_MB_TOP_K)
+        
+        all_documents = troop_documents + bsa_documents + rank_mb_documents
+        print(f"Retrieved {len(all_documents)} total documents with default retrieval")
+    else:
+        # Print detailed stats about high-scoring documents
+        print(f"Retrieved {len(troop_documents)} documents from Troop 125 namespace (score > 0.85)")
+        print(f"Retrieved {len(bsa_documents)} documents from BSA Website Data namespace (score > 0.85)")
+        print(f"Retrieved {len(rank_mb_documents)} documents from Rank Requirements & Merit Badge Info namespace (score > 0.85)")
+    
+    # Log info about the top documents from each source if available
     if troop_documents:
         print(f"Top Troop document: {troop_documents[0][2]} (Score: {troop_documents[0][3]:.4f})")
     if bsa_documents:
@@ -306,13 +334,9 @@ async def ask_question(
     if rank_mb_documents:
         print(f"Top Rank/MB document: {rank_mb_documents[0][2]} (Score: {rank_mb_documents[0][3]:.4f})")
     
-    # Combine the documents
-    all_documents = troop_documents + bsa_documents + rank_mb_documents
-    print(f"Total documents retrieved: {len(all_documents)}")
-    
     if not all_documents:
         raise HTTPException(
-            status_code=404, detail="No relevant documents found in Pinecone."
+            status_code=404, detail="No relevant documents found."
         )
 
     if any(all_documents):
