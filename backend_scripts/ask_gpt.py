@@ -128,6 +128,10 @@ def retrieve_from_troop125(query, top_k=15):
         
         contexts = []
         for match in results["matches"]:
+            # Only include documents with score > 0.85
+            if match["score"] <= 0.85:
+                continue
+                
             # Check for both old and new metadata formats
             if "body" in match["metadata"]:
                 body = match["metadata"]["body"]
@@ -170,6 +174,10 @@ def retrieve_from_bsa_website(query, top_k=10):
         
         contexts = []
         for match in results["matches"]:
+            # Only include documents with score > 0.85
+            if match["score"] <= 0.85:
+                continue
+                
             # Check for both old and new metadata formats
             if "body" in match["metadata"]:
                 body = match["metadata"]["body"]
@@ -212,6 +220,10 @@ def retrieve_from_rank_mb_info(query, top_k=10):
         
         contexts = []
         for match in results["matches"]:
+            # Only include documents with score > 0.85
+            if match["score"] <= 0.85:
+                continue
+                
             # Handle the metadata fields specific to this namespace
             # Expected fields: id, body, date, filename, from, processed_at, subject
             if "body" in match["metadata"]:
@@ -288,15 +300,15 @@ async def ask_question(
     decoded_question = unquote(question)
     print("Decoded Question: " + decoded_question)
     
-    # Retrieve documents from all namespaces
+    # Retrieve documents from all namespaces (filtered by score > 0.85)
     troop_documents = retrieve_from_troop125(decoded_question, TROOP_TOP_K)
     bsa_documents = retrieve_from_bsa_website(decoded_question, BSA_TOP_K)
     rank_mb_documents = retrieve_from_rank_mb_info(decoded_question, RANK_MB_TOP_K)
     
     # Print document counts for debugging
-    print(f"Retrieved {len(troop_documents)} documents from Troop 125 namespace")
-    print(f"Retrieved {len(bsa_documents)} documents from BSA Website Data namespace")
-    print(f"Retrieved {len(rank_mb_documents)} documents from Rank Requirements & Merit Badge Info namespace")
+    print(f"Retrieved {len(troop_documents)} documents from Troop 125 namespace (score > 0.85)")
+    print(f"Retrieved {len(bsa_documents)} documents from BSA Website Data namespace (score > 0.85)")
+    print(f"Retrieved {len(rank_mb_documents)} documents from Rank Requirements & Merit Badge Info namespace (score > 0.85)")
     
     # Log some info about the top documents from each source if available
     if troop_documents:
@@ -308,11 +320,11 @@ async def ask_question(
     
     # Combine the documents
     all_documents = troop_documents + bsa_documents + rank_mb_documents
-    print(f"Total documents retrieved: {len(all_documents)}")
+    print(f"Total documents retrieved with score > 0.85: {len(all_documents)}")
     
     if not all_documents:
         raise HTTPException(
-            status_code=404, detail="No relevant documents found in Pinecone."
+            status_code=404, detail="No relevant documents found with score > 0.85."
         )
 
     if any(all_documents):
