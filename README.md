@@ -13,6 +13,8 @@ Troop-Talk - Main Repostiory
 * Backend Scripts
 * Tools
     - `delete_vectors.py` - Python Script to delete Pinecone vectors by ID (with bulk support)
+    - `download_emails.js` - GScript code that is hosted on [Google Scripts](https://script.google.com/home/projects/1p7LWD4aCjja0W3SjvDLOeXEfIyH_YPf3nxa8xoMImBszRJHTpxUKwaUp/edit?pli=1), allows for scraping Email data between a range of dates from a Google Group
+    
 troop-talk-website - Submodule of Troop-Talk
 
 ## For troop-talk-website
