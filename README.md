@@ -3,6 +3,7 @@ by Abhay Sudhir
 
 ## Goal
 The aim of this project is to create a chat interface that will allow people to talk to their scout emails
+TroopTalk Demo (Troop 2220): https://share.cleanshot.com/Kff67zV4
 
 ## Information Updates
 Current Pincone Context Window: 03/08/2025 - 3/22/2025 -- All emails sent to whole troop  
