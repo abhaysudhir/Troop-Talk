@@ -1,20 +1,14 @@
-# Goal
+# TroopTalk by Abhay Sudhir
+
+## Goal
 The aim of this project is to create a chat interface that will allow people to talk to their scout emails
-
-- [x] Initialize & Setup Git & Venv
-- [x] Create exporting emails to pinecone script (Current Supported Filetypes: .pdf, .docx, .xlsx)
-- [x] Create Asking ChatGPT
-- [x] Host on Digital Ocean
-
-Problems
-- [x] Unable to mass export emails (SOLVED USING Gscripts)
-- [x] Too many tokens for ChatGPT to process
 
 ## Information Updates
 Current Pincone Context Window: 03/08/2025 - 3/22/2025 -- All emails sent to whole troop
 Last Date of BSA Website Scraping: 03/25/2025
 Last Date of T125 Website Scraping: 03/26/2025
 
+## Organization Structure
 
 troop-talk-website is a submodule now
 
