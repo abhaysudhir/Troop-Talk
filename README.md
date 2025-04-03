@@ -16,6 +16,8 @@ Last Date of T125 Website Scraping: 03/26/2025
         2. Finds related Scouting information in Pinecone Database (checks for match of >=0.85, or defaults to fallback method with hardcoded top_k values)
         3. Sends `custom prompt + user query + Pinecone-retrieved information` to Deepseek V3 (Through OpenRouter)
     - `clean_and_upload.py` - Script that takes an Input/Output Directory, chunks data based on a set approximate token size, and uploads data to Pinecone (offers non-chunking mode too)
+
+    - `inviteToOrganization.py` - Dormant code for an Admin Dashboard where requests to join Troops can be approved/denied
 * Tools
     - `delete_vectors.py` - Python Script to delete Pinecone vectors by ID (with bulk support)
     - `download_emails.js` - GScript code that is hosted on [Google Scripts](https://script.google.com/home/projects/1p7LWD4aCjja0W3SjvDLOeXEfIyH_YPf3nxa8xoMImBszRJHTpxUKwaUp/edit?pli=1), allows for scraping Email data between a range of dates from a Google Group
