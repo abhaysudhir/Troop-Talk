@@ -9,9 +9,11 @@ Last Date of BSA Website Scraping: 03/25/2025
 Last Date of T125 Website Scraping: 03/26/2025  
 
 ## Organization Structure
-Troop-Talk main repository
-
-troop-talk-website is a submodule now
+Troop-Talk - Main Repostiory  
+* Backend Scripts
+* Tools
+    - `delete_vectors.py` - Python Script to delete Pinecone vectors by ID (with bulk support)
+troop-talk-website - Submodule of Troop-Talk
 
 ## For troop-talk-website
 # Step 3: Install the necessary dependencies.
