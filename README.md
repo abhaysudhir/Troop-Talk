@@ -33,4 +33,4 @@ Talking to Mr. Putt about possibly partnering up.
 Advertising in Scout Life Magazine
 - [x] Using Gemini 2.0 API for chatbot -- 2million token context window + cheaper
 
-- make sure that text isn't being streamed after all the output is generated
+Changed to using Deepseek V3 from OpenRouter
