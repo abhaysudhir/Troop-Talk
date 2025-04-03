@@ -22,6 +22,7 @@ Last Date of T125 Website Scraping: 03/26/2025
 * Tools
     - `delete_vectors.py` - Python Script to delete Pinecone vectors by ID (with bulk support)
     - `download_emails.js` - GScript code that is hosted on [Google Scripts](https://script.google.com/home/projects/1p7LWD4aCjja0W3SjvDLOeXEfIyH_YPf3nxa8xoMImBszRJHTpxUKwaUp/edit?pli=1), allows for scraping Email data between a range of dates from a Google Group
+    - `scrape_bsa.py` - Scrapes https://scouting.org using Firecrawl
 
 #### troop-talk-website - Submodule of Troop-Talk
 Hosted on Digital Ocean under [troop-talk-website](https://cloud.digitalocean.com/apps/625f0490-1baf-460e-aa23-190907b905e5?source_ref=projects&i=f2dff9)
