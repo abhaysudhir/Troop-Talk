@@ -9,7 +9,7 @@ Last Date of BSA Website Scraping: 03/25/2025
 Last Date of T125 Website Scraping: 03/26/2025  
 
 ## Organization Structure
-Troop-Talk - Main Repostiory  
+#### Troop-Talk - Main Repostiory  
 * Backend Scripts
     - `ask_gpt.py` - API that:
         1. Processes incoming query (sent as a POST request)
@@ -20,14 +20,10 @@ Troop-Talk - Main Repostiory
     - `delete_vectors.py` - Python Script to delete Pinecone vectors by ID (with bulk support)
     - `download_emails.js` - GScript code that is hosted on [Google Scripts](https://script.google.com/home/projects/1p7LWD4aCjja0W3SjvDLOeXEfIyH_YPf3nxa8xoMImBszRJHTpxUKwaUp/edit?pli=1), allows for scraping Email data between a range of dates from a Google Group
 
-troop-talk-website - Submodule of Troop-Talk
-
-## For troop-talk-website
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+#### troop-talk-website - Submodule of Troop-Talk
+##### Setup
+Install Dependencies: `npm i`
+Run Development Server: `npm run dev`
 
 Possibly using an AI crawler to scrape emails from google groups?
 
