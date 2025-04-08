@@ -34,6 +34,11 @@ Install Dependencies: `npm i`
 Run Development Server: `npm run dev`
 
 
+## Current Status
+* Trying to Integrate TroopTalk into Troop 2220 (w/ Natalie's help)
+* Emailed with demo to Scoutmaster Ms. Visa
+
+
 ## Future Plans
 * Possibly using an AI crawler to scrape emails from google groups?
 * Send emails to higher ups in Boy Scouts to partner with them
