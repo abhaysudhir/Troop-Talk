@@ -1,5 +1,7 @@
-# TroopTalk 
+# TroopTalk
 by Abhay Sudhir
+
+Instagram: @trooptalk.ai
 
 ## Goal
 The aim of this project is to create a chat interface that will allow people to talk to their scout emails
