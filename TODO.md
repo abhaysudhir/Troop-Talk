@@ -12,5 +12,4 @@
 
 - [x] Create a separate namespace with just website data
 - [x] Add in ability to query webiste data + troop data -> send to model
-
 - [x] Add Scoutbook Requirements into Pinecone Vector Store
