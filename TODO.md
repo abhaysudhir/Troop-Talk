@@ -5,10 +5,6 @@
 - [x] Create namespace for T125
 - [x] Upload chunked email content to Troop 125 Namespace
 
-## Multiple Troop Integration
-- [ ] Talk to Aarush about Integrating TroopTalk in his Troop
-- [ ] Create Namespace for New Troop
-
 
 - [x] Create a separate namespace with just website data
 - [x] Add in ability to query webiste data + troop data -> send to model
