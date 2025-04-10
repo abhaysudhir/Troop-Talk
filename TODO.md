@@ -13,6 +13,7 @@
 ## Multiple Troop Integration
 - [ ] Able to read User's associated Organization ID (ex. `org_2rj04NYnOGUtlfms1uiOXFAHQDp`) for any user
 - [ ] Send Organization ID as part of POST request to `ask_gpt.py`
-- [ ] Add in dictionary of corresponding Organization IDs and namespace to `ask_gpt.py`
-- [ ] Ensure that correct vector
+- [ ] Add in dictionary of corresponding Organization IDs and namespaces to `ask_gpt.py`
+- [ ] Ensure that only namespaces associated with particular Organization (Troop) are being queried
 - [ ] Add in querying of universal sources of information (BSA Website, Merit Badges/Rank Requirements, etc.)
+- [ ] Document Process of onboarding new Troops.
