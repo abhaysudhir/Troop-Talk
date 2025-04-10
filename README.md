@@ -37,6 +37,7 @@ Run Development Server: `npm run dev`
 ## Current Status
 * Trying to Integrate TroopTalk into Troop 2220 (w/ Natalie's help)
 * Emailed with demo to Scoutmaster Ms. Visa
+* Talking to Aarush about integrating in his Troop
 
 
 ## Future Plans
