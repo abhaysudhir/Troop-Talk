@@ -10,8 +10,8 @@
 - [x] Add in ability to query webiste data + troop data -> send to model
 - [x] Add Scoutbook Requirements into Pinecone Vector Store
 
-## Multiple Troop Integration
-- [ ] Able to read User's associated Organization ID (ex. `org_2rj04NYnOGUtlfms1uiOXFAHQDp`) for any user
+### Multiple Troop Integration
+- [ ] Add ability to read User's associated Organization ID (ex. `org_2rj04NYnOGUtlfms1uiOXFAHQDp`) for any user
 - [ ] Send Organization ID as part of POST request to `ask_gpt.py`
 - [ ] Add in dictionary of corresponding Organization IDs and namespaces to `ask_gpt.py`
 - [ ] Ensure that only namespaces associated with particular Organization (Troop) are being queried
