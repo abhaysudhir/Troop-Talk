@@ -39,6 +39,8 @@ Run Development Server: `npm run dev`
 * Emailed with demo to Scoutmaster Ms. Visa
 * Talking to Aarush about integrating in his Troop
 
+#### Troop 2220 Integration
+* Demo to Commitee after Spring Break
 
 ## Future Plans
 * Possibly using an AI crawler to scrape emails from google groups?
