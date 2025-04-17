@@ -17,8 +17,8 @@ PINECONE_ENV = "us-east-1"
 INDEX_NAME = "boyscout-gpt-t125"
 
 # Query configurations
-TROOP_TOP_K = 45  # Fixed value for Troop 125 namespace
-BSA_TOP_K = 30    # Fixed value for BSA Website Data namespace
+TROOP_TOP_K = 25  # Fixed value for Troop 125 namespace
+BSA_TOP_K = 10    # Fixed value for BSA Website Data namespace
 RANK_MB_TOP_K = 10  # Fixed value for Rank Requirements & Merit Badge Info namespace
 
 # Initialize clients
@@ -132,14 +132,16 @@ def retrieve_from_troop125(query, top_k=15, min_score=None):
             if min_score is not None and match["score"] <= min_score:
                 continue
                 
-            # Check for both old and new metadata formats
+            # Check for various metadata formats
             if "body" in match["metadata"]:
                 body = match["metadata"]["body"]
             elif "chunk_text" in match["metadata"]:
                 body = match["metadata"]["chunk_text"]
+            elif "content" in match["metadata"]:
+                body = match["metadata"]["content"]
             else:
-                # Skip if neither key exists
-                print(f"Warning: Document missing both 'body' and 'chunk_text' fields. Available keys: {match['metadata'].keys()}")
+                # Skip if no recognizable content field exists
+                print(f"Warning: Document missing 'body', 'chunk_text', or 'content' fields. Available keys: {match['metadata'].keys()}")
                 continue
                 
             date = match["metadata"]["date"]
@@ -179,14 +181,16 @@ def retrieve_from_bsa_website(query, top_k=10, min_score=None):
             if min_score is not None and match["score"] <= min_score:
                 continue
                 
-            # Check for both old and new metadata formats
+            # Check for various metadata formats
             if "body" in match["metadata"]:
                 body = match["metadata"]["body"]
             elif "chunk_text" in match["metadata"]:
                 body = match["metadata"]["chunk_text"]
+            elif "content" in match["metadata"]:
+                body = match["metadata"]["content"]
             else:
-                # Skip if neither key exists
-                print(f"Warning: Document missing both 'body' and 'chunk_text' fields. Available keys: {match['metadata'].keys()}")
+                # Skip if no recognizable content field exists
+                print(f"Warning: Document missing 'body', 'chunk_text', or 'content' fields. Available keys: {match['metadata'].keys()}")
                 continue
                 
             date = match["metadata"]["date"]
@@ -226,13 +230,14 @@ def retrieve_from_rank_mb_info(query, top_k=10, min_score=None):
             if min_score is not None and match["score"] <= min_score:
                 continue
                 
-            # Handle the metadata fields specific to this namespace
-            # Expected fields: id, body, date, filename, from, processed_at, subject
+            # Handle various metadata formats for Rank/MB docs
             if "body" in match["metadata"]:
                 body = match["metadata"]["body"]
+            elif "content" in match["metadata"]:
+                body = match["metadata"]["content"]
             else:
-                # Skip if body doesn't exist
-                print(f"Warning: Document missing 'body' field. Available keys: {match['metadata'].keys()}")
+                # Skip if no recognizable content field exists
+                print(f"Warning: Document missing 'body' or 'content' fields. Available keys: {match['metadata'].keys()}")
                 continue
                 
             date = match["metadata"].get("date", "No Date")
@@ -265,7 +270,12 @@ async def ask_deepseek_stream(contexts, question, org_slug=None):
     """
     # Format contexts into a single string
     context_text = format_contexts(contexts)
-
+    print("Debug: Formatted context_text preview (first 200 chars):", context_text[:200])
+    messages_payload = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": f"Context:\n{context_text}\n\nQuestion: {question}\n\nProvide a clear, helpful answer in markdown format:"}
+    ]
+    print("Debug: Messages payload to Deepseek model:", messages_payload)
     try:
         stream = openrouter_client.chat.completions.create(
             extra_headers={
@@ -274,10 +284,7 @@ async def ask_deepseek_stream(contexts, question, org_slug=None):
                 "X-Clerk-Organization-Slug": org_slug or "",
             },
             model="deepseek/deepseek-chat-v3-0324:free",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": f"Context:\n{context_text}\n\nQuestion: {question}\n\nProvide a clear, helpful answer in markdown format:"}
-            ],
+            messages=messages_payload,
             stream=True
         )
         
@@ -297,11 +304,14 @@ async def ask_deepseek_stream(contexts, question, org_slug=None):
 async def ask_question(request: Request):
     # Read JSON body for question and organization
     data = await request.json()
+    print("Debug: Full /ask request data:", data)
     question = data.get("question")
     org_slug = data.get("organizationSlug")
+    frontend_context = data.get("context")
+    print(f"Debug: Frontend context length: {len(frontend_context) if isinstance(frontend_context, list) else 'N/A'}")
     if not question:
         raise HTTPException(status_code=400, detail="Missing 'question' in request body")
-    print(f"Received question: {question}, Organization Slug: {org_slug}")
+    print(f"Debug: Parsed question: {question}, Organization Slug: {org_slug}")
     decoded_question = question
 
     # Try with high threshold first (0.85)
@@ -310,30 +320,29 @@ async def ask_question(request: Request):
     rank_mb_documents = retrieve_from_rank_mb_info(decoded_question, RANK_MB_TOP_K, min_score=0.85)
     
     all_documents = troop_documents + bsa_documents + rank_mb_documents
-    print(f"Retrieved {len(all_documents)} total documents with score > 0.85")
+    print(f"Debug: Retrieved contexts -> Troop: {len(troop_documents)}, BSA: {len(bsa_documents)}, RankMB: {len(rank_mb_documents)}, Total: {len(all_documents)}")
+    print("Debug: Sample retrieved document entries:", all_documents[:3])
     
     # If we don't have enough documents, fall back to default (no score filtering)
     if not all_documents:
-        print("No documents found with score > 0.85, falling back to default retrieval")
+        print("Debug: No high-scoring documents found, falling back to default retrieval")
         troop_documents = retrieve_from_troop125(decoded_question, TROOP_TOP_K)
         bsa_documents = retrieve_from_bsa_website(decoded_question, BSA_TOP_K)
         rank_mb_documents = retrieve_from_rank_mb_info(decoded_question, RANK_MB_TOP_K)
         
         all_documents = troop_documents + bsa_documents + rank_mb_documents
-        print(f"Retrieved {len(all_documents)} total documents with default retrieval")
+        print(f"Debug: Retrieved {len(all_documents)} contexts with default retrieval")
     else:
         # Print detailed stats about high-scoring documents
-        print(f"Retrieved {len(troop_documents)} documents from Troop 125 namespace (score > 0.85)")
-        print(f"Retrieved {len(bsa_documents)} documents from BSA Website Data namespace (score > 0.85)")
-        print(f"Retrieved {len(rank_mb_documents)} documents from Rank Requirements & Merit Badge Info namespace (score > 0.85)")
+        print(f"Debug: High-scoring Troop docs: {len(troop_documents)}, BSA docs: {len(bsa_documents)}, RankMB docs: {len(rank_mb_documents)}")
     
     # Log info about the top documents from each source if available
     if troop_documents:
-        print(f"Top Troop document: {troop_documents[0][2]} (Score: {troop_documents[0][3]:.4f})")
+        print(f"Debug: Top Troop document: {troop_documents[0][2]} (Score: {troop_documents[0][3]:.4f})")
     if bsa_documents:
-        print(f"Top BSA document: {bsa_documents[0][2]} (Score: {bsa_documents[0][3]:.4f})")
+        print(f"Debug: Top BSA document: {bsa_documents[0][2]} (Score: {bsa_documents[0][3]:.4f})")
     if rank_mb_documents:
-        print(f"Top Rank/MB document: {rank_mb_documents[0][2]} (Score: {rank_mb_documents[0][3]:.4f})")
+        print(f"Debug: Top RankMB document: {rank_mb_documents[0][2]} (Score: {rank_mb_documents[0][3]:.4f})")
     
     if not all_documents:
         raise HTTPException(
