@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pinecone import Pinecone
@@ -9,7 +9,6 @@ from openai import OpenAI
 import dotenv
 import asyncio
 
-dotenv.load_dotenv()
 # API keys and configurations
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # For embeddings
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
@@ -259,7 +258,7 @@ def format_contexts(contexts):
         for date, from_, subject, score, body in contexts
     ])
 
-async def ask_deepseek_stream(contexts, question):
+async def ask_deepseek_stream(contexts, question, org_slug=None):
     """
     Uses Deepseek model through OpenRouter to answer a question based on the provided contexts.
     Returns a streaming response.
@@ -270,8 +269,9 @@ async def ask_deepseek_stream(contexts, question):
     try:
         stream = openrouter_client.chat.completions.create(
             extra_headers={
-                "HTTP-Referer": "troop125.org",  # Site URL for rankings on openrouter.ai
-                "X-Title": "Troop 125 Scout Assistant",  # Site title for rankings on openrouter.ai
+                "HTTP-Referer": "troop125.org",
+                "X-Title": "Troop 125 Scout Assistant",
+                "X-Clerk-Organization-Slug": org_slug or "",
             },
             model="deepseek/deepseek-chat-v3-0324:free",
             messages=[
@@ -294,15 +294,16 @@ async def ask_deepseek_stream(contexts, question):
         )
 
 @app.post("/ask")
-async def ask_question(
-    question: str = Query(..., description="The question to ask the AI"),
-):
-    """
-    Endpoint to handle user questions and return an AI-generated answer with streaming.
-    """
-    decoded_question = unquote(question)
-    print("Decoded Question: " + decoded_question)
-    
+async def ask_question(request: Request):
+    # Read JSON body for question and organization
+    data = await request.json()
+    question = data.get("question")
+    org_slug = data.get("organizationSlug")
+    if not question:
+        raise HTTPException(status_code=400, detail="Missing 'question' in request body")
+    print(f"Received question: {question}, Organization Slug: {org_slug}")
+    decoded_question = question
+
     # Try with high threshold first (0.85)
     troop_documents = retrieve_from_troop125(decoded_question, TROOP_TOP_K, min_score=0.85)
     bsa_documents = retrieve_from_bsa_website(decoded_question, BSA_TOP_K, min_score=0.85)
@@ -342,7 +343,7 @@ async def ask_question(
     if any(all_documents):
         # Return a streaming response
         return StreamingResponse(
-            ask_deepseek_stream(all_documents, decoded_question),
+            ask_deepseek_stream(all_documents, decoded_question, org_slug),
             media_type="text/plain"
         )
     else:
