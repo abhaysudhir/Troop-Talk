@@ -258,26 +258,35 @@ def format_contexts(contexts):
         for date, from_, subject, score, body in contexts
     ])
 
+def _prepare_deepseek_llm_payload(contexts, question, org_slug=None):
+    """
+    Prepares the payload (model name, messages, extra headers) for the Deepseek model call via OpenRouter.
+    """
+    context_text = format_contexts(contexts)
+    model_name = "deepseek/deepseek-chat-v3-0324:free"
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": f"Context:\n{context_text}\n\nQuestion: {question}\n\nProvide a clear, helpful answer in markdown format:"}
+    ]
+    extra_headers = {
+        "HTTP-Referer": "troop125.org",
+        "X-Title": "Troop 125 Scout Assistant",
+        "X-Clerk-Organization-Slug": org_slug or "",
+    }
+    return model_name, messages, extra_headers
+
 async def ask_deepseek_stream(contexts, question, org_slug=None):
     """
     Uses Deepseek model through OpenRouter to answer a question based on the provided contexts.
     Returns a streaming response.
     """
-    # Format contexts into a single string
-    context_text = format_contexts(contexts)
+    model_name, messages, extra_headers = _prepare_deepseek_llm_payload(contexts, question, org_slug)
 
     try:
         stream = openrouter_client.chat.completions.create(
-            extra_headers={
-                "HTTP-Referer": "troop125.org",
-                "X-Title": "Troop 125 Scout Assistant",
-                "X-Clerk-Organization-Slug": org_slug or "",
-            },
-            model="deepseek/deepseek-chat-v3-0324:free",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": f"Context:\n{context_text}\n\nQuestion: {question}\n\nProvide a clear, helpful answer in markdown format:"}
-            ],
+            extra_headers=extra_headers,
+            model=model_name,
+            messages=messages,
             stream=True
         )
         
@@ -287,21 +296,61 @@ async def ask_deepseek_stream(contexts, question, org_slug=None):
                 print(content, end="", flush=True)  # Print content as it streams without newlines
                 yield content
     except Exception as e:
-        print(f"Error from Deepseek model: {str(e)}")
+        print(f"Error from {model_name} model: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Error generating response: {str(e)}"
         )
 
+def _prepare_openai_gpt_payload(contexts, question):
+    """
+    Prepares the payload (model name, messages) for the OpenAI GPT model call.
+    """
+    context_text = format_contexts(contexts)
+    # Using gpt-4o-mini as an educated guess for "GPT-4.1 Nano"
+    # If this model ID is incorrect, it may need to be changed to a valid OpenAI model ID.
+    model_name = "gpt-4.1-nano-2025-04-14" 
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": f"Context:\n{context_text}\n\nQuestion: {question}\n\nProvide a clear, helpful answer in markdown format:"}
+    ]
+    return model_name, messages
+
+async def ask_openai_gpt_stream(contexts, question):
+    """
+    Uses OpenAI GPT model to answer a question based on the provided contexts.
+    Returns a streaming response.
+    """
+    model_name, messages = _prepare_openai_gpt_payload(contexts, question)
+
+    try:
+        stream = openai_client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            stream=True
+        )
+        
+        for chunk in stream:
+            if chunk.choices[0].delta and chunk.choices[0].delta.content is not None:
+                content = chunk.choices[0].delta.content
+                print(content, end="", flush=True)
+                yield content
+    except Exception as e:
+        print(f"Error from {model_name} model (OpenAI): {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating response from OpenAI: {str(e)}"
+        )
+
 @app.post("/ask")
 async def ask_question(request: Request):
-    # Read JSON body for question and organization
+    # Read JSON body for question
     data = await request.json()
     question = data.get("question")
-    org_slug = data.get("organizationSlug")
+    # org_slug is removed as it's not used with the direct OpenAI API
     if not question:
         raise HTTPException(status_code=400, detail="Missing 'question' in request body")
-    print(f"Received question: {question}, Organization Slug: {org_slug}")
+    print(f"Received question: {question}") # Removed org_slug from log
     decoded_question = question
 
     # Try with high threshold first (0.85)
@@ -341,9 +390,9 @@ async def ask_question(request: Request):
         )
 
     if any(all_documents):
-        # Return a streaming response
+        # Return a streaming response using the new OpenAI GPT function
         return StreamingResponse(
-            ask_deepseek_stream(all_documents, decoded_question, org_slug),
+            ask_openai_gpt_stream(all_documents, decoded_question), # Changed to ask_openai_gpt_stream and removed org_slug
             media_type="text/plain"
         )
     else:
