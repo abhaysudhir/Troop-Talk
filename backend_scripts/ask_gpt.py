@@ -17,7 +17,7 @@ PINECONE_ENV = "us-east-1"
 INDEX_NAME = "boyscout-gpt-t125"
 
 # Query configurations
-TROOP_TOP_K = 45  # Fixed value for Troop 125 namespace
+TROOP_TOP_K = 25  # Fixed value for Troop 125 namespace
 BSA_TOP_K = 30    # Fixed value for BSA Website Data namespace
 RANK_MB_TOP_K = 10  # Fixed value for Rank Requirements & Merit Badge Info namespace
 
@@ -376,30 +376,34 @@ async def ask_question(request: Request):
         print(f"Retrieved {len(bsa_documents)} documents from BSA Website Data namespace (score > 0.85)")
         print(f"Retrieved {len(rank_mb_documents)} documents from Rank Requirements & Merit Badge Info namespace (score > 0.85)")
     
-    # Log info about the top documents from each source if available
+    # Limit total documents to a maximum of 15
+    MAX_TOTAL_DOCUMENTS = 20
+    if all_documents and len(all_documents) > MAX_TOTAL_DOCUMENTS:
+        print(f"Capping total documents from {len(all_documents)} to {MAX_TOTAL_DOCUMENTS}. Documents are prioritized by source: Troop 125, BSA, Rank/MB.")
+        all_documents = all_documents[:MAX_TOTAL_DOCUMENTS]
+    elif all_documents:
+        print(f"Using {len(all_documents)} total documents (not capped).")
+    else:
+        print("No documents available before final check.")
+
+    # Log info about the top documents from each source if available (reflects initial retrieval)
     if troop_documents:
-        print(f"Top Troop document: {troop_documents[0][2]} (Score: {troop_documents[0][3]:.4f})")
+        print(f"Top Troop document (initial retrieval): {troop_documents[0][2]} (Score: {troop_documents[0][3]:.4f})")
     if bsa_documents:
-        print(f"Top BSA document: {bsa_documents[0][2]} (Score: {bsa_documents[0][3]:.4f})")
+        print(f"Top BSA document (initial retrieval): {bsa_documents[0][2]} (Score: {bsa_documents[0][3]:.4f})")
     if rank_mb_documents:
-        print(f"Top Rank/MB document: {rank_mb_documents[0][2]} (Score: {rank_mb_documents[0][3]:.4f})")
+        print(f"Top Rank/MB document (initial retrieval): {rank_mb_documents[0][2]} (Score: {rank_mb_documents[0][3]:.4f})")
     
-    if not all_documents:
+    if not all_documents: # Check after potential capping
         raise HTTPException(
-            status_code=404, detail="No relevant documents found."
+            status_code=404, detail="No relevant documents found after filtering and capping."
         )
 
-    if any(all_documents):
-        # Return a streaming response using the new OpenAI GPT function
-        return StreamingResponse(
-            ask_openai_gpt_stream(all_documents, decoded_question), # Changed to ask_openai_gpt_stream and removed org_slug
-            media_type="text/plain"
-        )
-    else:
-        raise HTTPException(
-            status_code=404,
-            detail="No content could be extracted from the retrieved documents.",
-        )
+    # If documents exist, stream them to the LLM
+    return StreamingResponse(
+        ask_openai_gpt_stream(all_documents, decoded_question), 
+        media_type="text/plain"
+    )
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
