@@ -1,6 +1,6 @@
 from firecrawl import FirecrawlApp
 
-app = FirecrawlApp(api_key="fc-b72b5fcd92fb4017bad18bdfaa10b922")
+app = FirecrawlApp(api_key="")
 
 # Crawl a website:
 crawl_status = app.crawl_url(
